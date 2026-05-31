@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign In — ScanFlow AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      margin-bottom: 28px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+    .tab-bar button {
+      flex: 1;
+      padding: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: #FAFBFC;
+      color: var(--text-light);
+      transition: var(--transition);
+      border: none;
+    }
+    .tab-bar button.active {
+      background: var(--primary);
+      color: #fff;
+    }
+    .tab-bar button:hover:not(.active) {
+      background: #EEF2F7;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="auth-wrapper">
+    <div class="auth-card">
+      <div class="logo">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:28px;height:28px;">
+          <rect width="32" height="32" rx="8" fill="#0077B6"/>
+          <path d="M8 16C8 11.58 11.58 8 16 8C20.42 8 24 11.58 24 16" stroke="#00E5FF" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M12 16C12 13.79 13.79 12 16 12C18.21 12 20 13.79 20 16" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="2" fill="#fff"/>
+          <path d="M16 18V24" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        ScanFlow AI
+      </div>
+
+      <!-- Tab Bar -->
+      <div class="tab-bar">
+        <button id="tabLogin" class="active">Sign In</button>
+        <button id="tabRegister">Sign Up</button>
+      </div>
+
+      <!-- Login Panel -->
+      <div id="loginPanel">
+        <h2>Welcome Back</h2>
+        <p class="sub">Sign in to your account to continue</p>
+
+        <form id="loginForm">
+          <div class="form-group">
+            <label for="loginEmail">Email Address</label>
+            <input type="email" id="loginEmail" placeholder="you@hospital.com" required>
+          </div>
+          <div class="form-group">
+            <label for="loginPassword">Password</label>
+            <input type="password" id="loginPassword" placeholder="Enter your password" required>
+          </div>
+          <div id="loginError" class="error-msg"></div>
+          <button type="submit" class="btn btn-primary">Sign In</button>
+        </form>
+      </div>
+
+      <!-- Register Panel -->
+      <div id="registerPanel" style="display:none;">
+        <h2>Create Account</h2>
+        <p class="sub">Set up your ScanFlow AI account</p>
+
+        <form id="registerForm">
+          <div class="form-group">
+            <label for="regName">Full Name</label>
+            <input type="text" id="regName" placeholder="Dr. Jane Smith" required>
+          </div>
+          <div class="form-group">
+            <label for="regEmail">Email Address</label>
+            <input type="email" id="regEmail" placeholder="you@hospital.com" required>
+          </div>
+          <div class="form-group">
+            <label for="regPassword">Password</label>
+            <input type="password" id="regPassword" placeholder="Min. 6 characters" required>
+          </div>
+          <div id="registerError" class="error-msg"></div>
+          <button type="submit" class="btn btn-primary">Create Account</button>
+        </form>
+      </div>
+
+      <div style="text-align:center;margin-top:20px;">
+        <a href="index.html" style="font-size:0.85rem;color:var(--text-light);">← Back to Home</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Supabase Auth Scripts -->
+  <script type="module" src="js/supabase-config.js"></script>
+  <script type="module" src="js/auth.js"></script>
+
+</body>
+</html>

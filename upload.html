@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Scan — ScanFlow AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Mobile Menu Button -->
+  <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="8" fill="#0077B6"/>
+          <path d="M8 16C8 11.58 11.58 8 16 8C20.42 8 24 11.58 24 16" stroke="#00E5FF" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M12 16C12 13.79 13.79 12 16 12C18.21 12 20 13.79 20 16" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="2" fill="#fff"/>
+          <path d="M16 18V24" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        ScanFlow AI
+      </div>
+      <nav>
+        <a href="dashboard.html">
+          <span>📊</span> Dashboard
+        </a>
+        <a href="upload.html" class="active">
+          <span>📤</span> Upload Scan
+        </a>
+        <a href="review.html">
+          <span>📋</span> Review Scans
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">D</div>
+          <div>
+            <div class="user-name" id="userName">Doctor</div>
+            <div class="user-role" id="userRole">Radiologist</div>
+          </div>
+        </div>
+        <button onclick="window.authUtils.logout()" style="margin-top:12px;background:rgba(255,255,255,0.1);color:#fff;padding:8px 16px;border-radius:8px;font-size:0.82rem;width:100%;transition:0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+          🚪 Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <div class="page-header">
+        <div>
+          <h1>Upload Scan</h1>
+          <p>Upload a medical image for AI-powered analysis</p>
+        </div>
+        <div class="actions">
+          <a href="review.html" class="btn btn-secondary btn-sm">📋 View All Scans</a>
+        </div>
+      </div>
+
+      <div class="upload-form">
+
+        <!-- Dropzone -->
+        <div class="upload-dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept=".jpg,.jpeg,.png">
+          <div class="upload-icon">📤</div>
+          <h3>Drop your scan image here</h3>
+          <p>or click to browse — Supports JPG, PNG (max 10MB)</p>
+          <div class="upload-preview" id="uploadPreview">
+            <img id="previewImage" alt="Preview">
+          </div>
+        </div>
+
+        <!-- Patient Info Form -->
+        <form id="uploadForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="patientName">Patient Name</label>
+              <input type="text" id="patientName" placeholder="e.g. John Smith" required>
+            </div>
+            <div class="form-group">
+              <label for="scanType">Scan Type</label>
+              <select id="scanType" required>
+                <option value="">Select scan type...</option>
+                <option value="CT Brain">CT Brain</option>
+                <option value="CT Chest">CT Chest</option>
+                <option value="CT Abdomen">CT Abdomen</option>
+                <option value="MRI Brain">MRI Brain</option>
+                <option value="MRI Spine">MRI Spine</option>
+                <option value="X-Ray Chest">X-Ray Chest</option>
+                <option value="X-Ray Knee">X-Ray Knee</option>
+                <option value="X-Ray Spine">X-Ray Spine</option>
+                <option value="Ultrasound">Ultrasound</option>
+              </select>
+            </div>
+          </div>
+          <button type="submit" id="submitBtn" class="btn btn-primary" style="margin-top:8px;">
+            ⚡ Upload & Analyze
+          </button>
+        </form>
+
+        <!-- AI Result Card -->
+        <div class="ai-result-card" id="aiResultCard">
+          <div class="ai-result-header">
+            <h3>🧠 AI Analysis Results</h3>
+            <span class="ai-engine-badge" id="resultEngine">—</span>
+          </div>
+          <div class="ai-result-grid">
+            <div class="ai-result-item">
+              <div class="label">Finding</div>
+              <div class="value" id="resultFinding">—</div>
+            </div>
+            <div class="ai-result-item">
+              <div class="label">Urgency</div>
+              <div class="value" id="resultUrgency">—</div>
+            </div>
+            <div class="ai-result-item">
+              <div class="label">Confidence</div>
+              <div class="value" id="resultConfidence">—</div>
+            </div>
+          </div>
+          <div class="progress-bar">
+            <div class="fill" id="resultConfBar" style="width:0%"></div>
+          </div>
+          <div class="ai-result-details">
+            <div class="ai-detail-section">
+              <div class="label">Detailed Analysis</div>
+              <div class="value" id="resultDetails">—</div>
+            </div>
+            <div class="ai-detail-section">
+              <div class="label">Recommendations</div>
+              <div class="value" id="resultRecommendations">—</div>
+            </div>
+          </div>
+          <div style="margin-top:20px;display:flex;gap:12px;">
+            <a href="review.html" class="btn btn-primary btn-sm">📋 Review Now</a>
+            <a href="upload.html" class="btn btn-secondary btn-sm">📤 Upload Another</a>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="js/supabase-config.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/upload.js"></script>
+
+</body>
+</html>
