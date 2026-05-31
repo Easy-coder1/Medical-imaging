@@ -210,20 +210,24 @@ app.get('*', (req, res) => {
 });
 
 // ---------- Start Server ----------
-app.listen(PORT, () => {
-  console.log('');
-  console.log('  ╔══════════════════════════════════════════════╗');
-  console.log('  ║       ScanFlow AI — Backend Proxy Server     ║');
-  console.log('  ╠══════════════════════════════════════════════╣');
-  console.log(`  ║  🌐 Server running at: http://localhost:${PORT}  ║`);
-  console.log(`  ║  🤖 AI Model: ${OPENAI_MODEL.padEnd(29)}║`);
-  console.log(`  ║  🔑 API Key: ${OPENAI_API_KEY ? '✅ Configured' : '❌ NOT SET'.padEnd(29)}║`);
-  console.log('  ╚══════════════════════════════════════════════╝');
-  console.log('');
-  if (!OPENAI_API_KEY || OPENAI_API_KEY.length <= 10) {
-    console.log('  ⚠️  WARNING: No valid OPENAI_API_KEY found in .env file!');
-    console.log('  → Create a .env file in the project root with:');
-    console.log('    OPENAI_API_KEY=sk-proj-your-key-here');
+if (require.main === module) {
+  app.listen(PORT, () => {
     console.log('');
-  }
-});
+    console.log('  ╔══════════════════════════════════════════════╗');
+    console.log('  ║       ScanFlow AI — Backend Proxy Server     ║');
+    console.log('  ╠══════════════════════════════════════════════╣');
+    console.log(`  ║  🌐 Server running at: http://localhost:${PORT}  ║`);
+    console.log(`  ║  🤖 AI Model: ${OPENAI_MODEL.padEnd(29)}║`);
+    console.log(`  ║  🔑 API Key: ${OPENAI_API_KEY ? '✅ Configured' : '❌ NOT SET'.padEnd(29)}║`);
+    console.log('  ╚══════════════════════════════════════════════╝');
+    console.log('');
+    if (!OPENAI_API_KEY || OPENAI_API_KEY.length <= 10) {
+      console.log('  ⚠️  WARNING: No valid OPENAI_API_KEY found in .env file!');
+      console.log('  → Create a .env file in the project root with:');
+      console.log('    OPENAI_API_KEY=sk-proj-your-key-here');
+      console.log('');
+    }
+  });
+}
+
+module.exports = app;
