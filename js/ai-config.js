@@ -56,4 +56,27 @@ async function analyzeImageWithAI(base64ImageData, mimeType, scanType, patientNa
   return data;
 }
 
-export { isAIConfigured, analyzeImageWithAI };
+async function sendChatMessage(query, context) {
+  const serverReady = await checkAIServerStatus();
+  if (!serverReady) {
+    throw new Error('AI_NOT_CONFIGURED: Cannot reach the backend server.');
+  }
+
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, context }),
+    signal: AbortSignal.timeout(15000)
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    const errorMsg = data?.error || `Server error: ${response.status}`;
+    throw new Error(errorMsg);
+  }
+
+  return data.reply;
+}
+
+export { isAIConfigured, analyzeImageWithAI, sendChatMessage };

@@ -1,6 +1,6 @@
 // ===== ScanFlow AI — Upload Module (Supabase + GPT-4o Vision) =====
 import { supabase } from './supabase-config.js';
-import { isAIConfigured, analyzeImageWithAI } from './ai-config.js';
+import { isAIConfigured, analyzeImageWithAI, sendChatMessage } from './ai-config.js';
 
 // ---------- Aidoc-Style AI Simulation (Fallback when no API key) ----------
 const AIDOC_FINDINGS = [
@@ -303,7 +303,78 @@ function displayAIResult(ai) {
   if (resultEngine) resultEngine.textContent = ai.aiEngine || '—';
 
   aiResultCard.classList.add('show');
+  
+  // Show Chat section and save context
+  const aiChatSection = document.getElementById('aiChatSection');
+  if (aiChatSection) {
+    aiChatSection.style.display = 'block';
+    window._currentAIContext = ai; // save for chat
+    const history = document.getElementById('aiChatHistory');
+    if(history) history.innerHTML = ''; // clear previous
+  }
 }
+
+// ---------- Chat Handlers ----------
+const aiChatBtn = document.getElementById('aiChatBtn');
+const aiChatInput = document.getElementById('aiChatInput');
+const aiChatHistory = document.getElementById('aiChatHistory');
+
+async function handleChatSubmit() {
+  const query = aiChatInput.value.trim();
+  if (!query) return;
+  
+  // Add user message
+  const userMsg = document.createElement('div');
+  userMsg.innerHTML = `<strong>You:</strong> ${query}`;
+  userMsg.style.background = 'rgba(0,119,182,0.1)';
+  userMsg.style.padding = '8px';
+  userMsg.style.borderRadius = '6px';
+  aiChatHistory.appendChild(userMsg);
+  
+  aiChatInput.value = '';
+  aiChatBtn.disabled = true;
+  aiChatBtn.textContent = '...';
+  aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
+
+  try {
+    const context = window._currentAIContext || {};
+    // Add current patient/scan type from form if available
+    const pName = document.getElementById('patientName');
+    const sType = document.getElementById('scanType');
+    if (pName) context.patientName = pName.value;
+    if (sType) context.scanType = sType.value;
+
+    const reply = await sendChatMessage(query, context);
+    
+    // Add AI message
+    const aiMsg = document.createElement('div');
+    aiMsg.innerHTML = `<strong>AI:</strong> ${reply}`;
+    aiMsg.style.background = 'rgba(0,0,0,0.03)';
+    aiMsg.style.padding = '8px';
+    aiMsg.style.borderRadius = '6px';
+    aiChatHistory.appendChild(aiMsg);
+  } catch (err) {
+    console.warn('Chat API failed, falling back to simulated response:', err);
+    // Add simulated AI message
+    const simulatedReply = "This is a simulated response. To get real AI answers, please check your OpenAI API key and billing quota.";
+    const aiMsg = document.createElement('div');
+    aiMsg.innerHTML = `<strong>AI (Simulated):</strong> ${simulatedReply}`;
+    aiMsg.style.background = 'rgba(0,0,0,0.03)';
+    aiMsg.style.padding = '8px';
+    aiMsg.style.borderRadius = '6px';
+    aiMsg.style.color = '#F4A261'; // Orange to indicate simulation
+    aiChatHistory.appendChild(aiMsg);
+  } finally {
+    aiChatBtn.disabled = false;
+    aiChatBtn.textContent = 'Ask';
+    aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
+  }
+}
+
+if (aiChatBtn) aiChatBtn.addEventListener('click', handleChatSubmit);
+if (aiChatInput) aiChatInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') handleChatSubmit();
+});
 
 // ---------- Init ----------
 document.addEventListener('DOMContentLoaded', () => {

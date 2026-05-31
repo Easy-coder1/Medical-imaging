@@ -145,6 +145,15 @@
             <a href="review.html" class="btn btn-primary btn-sm">📋 Review Now</a>
             <a href="upload.html" class="btn btn-secondary btn-sm">📤 Upload Another</a>
           </div>
+          <!-- AI Chat UI -->
+          <div class="ai-chat-section" id="aiChatSection" style="margin-top: 20px; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 15px; display: none;">
+            <h4>💬 Ask AI About This Scan</h4>
+            <div id="aiChatHistory" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-color); display: flex; flex-direction: column; gap: 8px;"></div>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="aiChatInput" placeholder="Ask a question about the results..." style="flex: 1; padding: 8px 12px; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; font-family: inherit; background: var(--bg-color); color: var(--text-color);">
+              <button id="aiChatBtn" class="btn btn-primary btn-sm" style="padding: 8px 16px;">Ask</button>
+            </div>
+          </div>
         </div>
 
       </div>

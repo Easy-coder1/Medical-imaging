@@ -152,6 +152,58 @@ Rules:
   }
 });
 
+// ---------- Proxy: General AI Chat / Search ----------
+app.post('/api/chat', async (req, res) => {
+  if (!OPENAI_API_KEY || OPENAI_API_KEY.length <= 10) {
+    return res.status(500).json({ error: 'AI_NOT_CONFIGURED: No valid OpenAI API key found on the server.' });
+  }
+
+  const { query, context } = req.body;
+
+  if (!query) {
+    return res.status(400).json({ error: 'Missing query in request body.' });
+  }
+
+  let systemPrompt = 'You are a helpful medical AI assistant. Provide concise, accurate, and professional answers.';
+  if (context && context.aiResult) {
+    systemPrompt += `\nContext of current scan: ${context.scanType} for patient ${context.patientName}. Findings: ${context.aiResult}. Details: ${context.details}`;
+  }
+
+  const requestBody = {
+    model: OPENAI_MODEL,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: query }
+    ],
+    max_tokens: 500,
+    temperature: 0.5
+  };
+
+  try {
+    const response = await fetch(OPENAI_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMsg = errorData?.error?.message || errorData?.detail || `OpenAI API error: ${response.status}`;
+      return res.status(response.status).json({ error: errorMsg });
+    }
+
+    const data = await response.json();
+    const text = data?.choices?.[0]?.message?.content;
+
+    res.json({ reply: text });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});
+
 // ---------- Fallback: serve index.html ----------
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
