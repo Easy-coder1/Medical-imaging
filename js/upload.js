@@ -304,13 +304,22 @@ function displayAIResult(ai) {
 
   aiResultCard.classList.add('show');
   
-  // Show Chat section and save context
+  // Save scan results to global context for chat
   const aiChatSection = document.getElementById('aiChatSection');
   if (aiChatSection) {
-    aiChatSection.style.display = 'block';
     window._currentAIContext = ai; // save for chat
     const history = document.getElementById('aiChatHistory');
-    if(history) history.innerHTML = ''; // clear previous
+    if (history) {
+      const sysMsg = document.createElement('div');
+      sysMsg.innerHTML = `<strong>System:</strong> Scan analyzed successfully (${ai.category}). AI analysis results loaded into context.`;
+      sysMsg.style.background = 'rgba(46,196,182,0.1)';
+      sysMsg.style.color = '#0D9488';
+      sysMsg.style.padding = '8px';
+      sysMsg.style.borderRadius = '6px';
+      sysMsg.style.fontSize = '0.85rem';
+      history.appendChild(sysMsg);
+      history.scrollTop = history.scrollHeight;
+    }
   }
 }
 

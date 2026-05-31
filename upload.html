@@ -145,12 +145,22 @@
             <a href="review.html" class="btn btn-primary btn-sm">📋 Review Now</a>
             <a href="upload.html" class="btn btn-secondary btn-sm">📤 Upload Another</a>
           </div>
-          <!-- AI Chat UI -->
-          <div class="ai-chat-section" id="aiChatSection" style="margin-top: 20px; border-top: 1px solid rgba(0,0,0,0.1); padding-top: 15px; display: none;">
-            <h4>💬 Ask AI About This Scan</h4>
-            <div id="aiChatHistory" style="max-height: 200px; overflow-y: auto; margin-bottom: 10px; font-size: 0.9rem; color: var(--text-color); display: flex; flex-direction: column; gap: 8px;"></div>
+        </div>
+
+        <!-- AI Chat Card -->
+        <div class="content-card" id="aiChatCard" style="margin-top: 24px;">
+          <h2 style="margin-bottom: 12px;">💬 ScanFlow AI Assistant</h2>
+          <p style="color: var(--text-light); font-size: 0.85rem; margin-top: -6px; margin-bottom: 16px;">
+            Ask the AI questions about anatomy, medical findings, pathologies, or the uploaded scan.
+          </p>
+          <div class="ai-chat-section" id="aiChatSection" style="border-top: 1px solid rgba(0,0,0,0.06); padding-top: 15px;">
+            <div id="aiChatHistory" style="max-height: 250px; overflow-y: auto; margin-bottom: 12px; font-size: 0.9rem; color: var(--text-color); display: flex; flex-direction: column; gap: 8px;">
+              <div style="background: rgba(0,0,0,0.03); padding: 8px; border-radius: 6px;">
+                <strong>AI:</strong> Hello! I am your ScanFlow AI assistant. How can I help you today? You can ask me questions about medical imaging, scan types, or any abnormalities.
+              </div>
+            </div>
             <div style="display: flex; gap: 8px;">
-              <input type="text" id="aiChatInput" placeholder="Ask a question about the results..." style="flex: 1; padding: 8px 12px; border: 1px solid rgba(0,0,0,0.1); border-radius: 6px; font-family: inherit; background: var(--bg-color); color: var(--text-color);">
+              <input type="text" id="aiChatInput" placeholder="Ask a question..." style="flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: inherit; background: #FAFBFC; color: var(--text);">
               <button id="aiChatBtn" class="btn btn-primary btn-sm" style="padding: 8px 16px;">Ask</button>
             </div>
           </div>
