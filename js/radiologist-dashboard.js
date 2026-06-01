@@ -4,6 +4,8 @@ import { supabase } from './supabase-config.js';
 // ---------- State ----------
 let allScans = [];
 let currentFilter = 'all';
+let isLoading = false;
+let lastError = null;
 
 // ---------- Priority Helpers ----------
 function getPriorityClass(scan) {
@@ -133,35 +135,86 @@ async function loadCriticalAlerts() {
 }
 
 // ---------- Load Scan Grid ----------
-async function loadScans() {
+async function loadScans(showLoading = true) {
   const grid = document.getElementById('scanGrid');
   if (!grid) return;
 
+  isLoading = true;
+  lastError = null;
+
+  if (showLoading) {
+    grid.innerHTML = `
+      <div style="text-align:center;padding:60px 24px;grid-column:1/-1;">
+        <div class="spinner"></div>
+        <p style="margin-top:12px;color:var(--text-light);font-size:0.85rem;">Loading scans...</p>
+      </div>`;
+  }
+
+  let supabaseSuccess = false;
+
   if (supabase) {
     try {
+      console.log('[Radiologist Dashboard] Fetching scans from Supabase...');
       const { data, error } = await supabase
         .from('scans')
         .select('*')
         .order('created_at', { ascending: false });
-      if (!error && data) {
+
+      if (error) {
+        console.error('[Radiologist Dashboard] Supabase error:', error);
+        lastError = `Database error: ${error.message}`;
+      } else if (data) {
+        console.log(`[Radiologist Dashboard] Loaded ${data.length} scans from Supabase`);
         allScans = data;
+        supabaseSuccess = true;
       }
     } catch (err) {
-      console.log('Supabase query failed:', err.message);
+      console.error('[Radiologist Dashboard] Supabase query failed:', err.message);
+      lastError = err.message;
+    }
+  } else {
+    console.log('[Radiologist Dashboard] Supabase not configured, using demo mode');
+  }
+
+  // Fallback to localStorage if Supabase didn't return any scans
+  if (!supabaseSuccess && allScans.length === 0) {
+    const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
+    if (demoScans.length > 0) {
+      console.log(`[Radiologist Dashboard] Using ${demoScans.length} demo scans from localStorage`);
+      allScans = demoScans;
     }
   }
 
-  if (allScans.length === 0) {
-    const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
-    allScans = demoScans;
-  }
-
+  isLoading = false;
   renderScans();
 }
+
+// ---------- Manual Refresh ----------
+function refreshScans() {
+  allScans = [];
+  loadScans(true);
+  loadStats();
+  loadCriticalAlerts();
+}
+
+// Make refreshScans globally available
+window.refreshScans = refreshScans;
 
 function renderScans() {
   const grid = document.getElementById('scanGrid');
   if (!grid) return;
+
+  // Show error message if there was a problem loading scans
+  if (lastError && allScans.length === 0) {
+    grid.innerHTML = `
+      <div style="text-align:center;padding:60px 24px;grid-column:1/-1;">
+        <div style="font-size:3rem;margin-bottom:12px;">⚠️</div>
+        <p style="color:#E63946;font-size:0.9rem;margin-bottom:8px;">Failed to load scans</p>
+        <p style="color:var(--text-light);font-size:0.8rem;margin-bottom:16px;">${escapeHtml(lastError)}</p>
+        <button onclick="refreshScans()" class="btn btn-primary btn-sm">🔄 Try Again</button>
+      </div>`;
+    return;
+  }
 
   // Filter scans
   let filtered = allScans;
@@ -182,10 +235,14 @@ function renderScans() {
   });
 
   if (filtered.length === 0) {
+    const message = allScans.length === 0 
+      ? 'No scans available yet. Scans uploaded by radiographers will appear here.'
+      : 'No scans found for this filter.';
     grid.innerHTML = `
       <div style="text-align:center;padding:60px 24px;grid-column:1/-1;">
         <div style="font-size:3rem;margin-bottom:12px;opacity:0.3;">📭</div>
-        <p style="color:var(--text-light);font-size:0.9rem;">No scans found for this filter.</p>
+        <p style="color:var(--text-light);font-size:0.9rem;">${message}</p>
+        ${allScans.length === 0 ? '<p style="color:var(--text-light);font-size:0.8rem;margin-top:8px;">Make sure you\'re logged in and scans have been uploaded.</p>' : ''}
       </div>`;
     return;
   }
@@ -283,12 +340,67 @@ function generatePlaceholder(scanType) {
   return 'data:image/svg+xml;base64,' + btoa(svg);
 }
 
+// ---------- Real-time Subscription ----------
+function setupRealTimeSubscription() {
+  if (!supabase) {
+    console.log('[Radiologist Dashboard] Real-time updates not available in demo mode');
+    return;
+  }
+
+  try {
+    const channel = supabase
+      .channel('scans-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'scans'
+        },
+        (payload) => {
+          console.log('[Radiologist Dashboard] Real-time update:', payload.eventType, payload.new);
+
+          if (payload.eventType === 'INSERT') {
+            // Add new scan to the beginning of the list
+            allScans.unshift(payload.new);
+            renderScans();
+            loadStats();
+            loadCriticalAlerts();
+          } else if (payload.eventType === 'UPDATE') {
+            // Update existing scan
+            const index = allScans.findIndex(s => s.id === payload.new.id);
+            if (index !== -1) {
+              allScans[index] = payload.new;
+              renderScans();
+              loadStats();
+              loadCriticalAlerts();
+            }
+          } else if (payload.eventType === 'DELETE') {
+            // Remove deleted scan
+            allScans = allScans.filter(s => s.id !== payload.old.id);
+            renderScans();
+            loadStats();
+            loadCriticalAlerts();
+          }
+        }
+      )
+      .subscribe();
+
+    console.log('[Radiologist Dashboard] Real-time subscription established');
+  } catch (err) {
+    console.error('[Radiologist Dashboard] Failed to setup real-time subscription:', err.message);
+  }
+}
+
 // ---------- Init ----------
 document.addEventListener('DOMContentLoaded', () => {
   if (window.authUtils) window.authUtils.requireAuth();
   loadStats();
   loadCriticalAlerts();
   loadScans();
+
+  // Setup real-time updates
+  setupRealTimeSubscription();
 
   // Sidebar toggle for mobile
   const menuBtn = document.getElementById('mobileMenuBtn');
