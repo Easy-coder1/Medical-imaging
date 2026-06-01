@@ -97,13 +97,39 @@ async function loadRecentActivity() {
     return;
   }
 
+  // Sort by priority: Critical first, then Urgent, then others
+  scans.sort((a, b) => {
+    const priorityOrder = { 'Critical': 0, 'Urgent': 1, 'Moderate': 2, 'Normal': 3 };
+    const aPriority = a.urgency || getUrgencyForFinding(a.ai_result)?.label || 'Normal';
+    const bPriority = b.urgency || getUrgencyForFinding(b.ai_result)?.label || 'Normal';
+    
+    // Also consider manual priority_color
+    const aColorPriority = a.priority_color === 'red' ? 0 : a.priority_color === 'orange' ? 1 : 2;
+    const bColorPriority = b.priority_color === 'red' ? 0 : b.priority_color === 'orange' ? 1 : 2;
+    
+    const aScore = priorityOrder[aPriority] !== undefined ? priorityOrder[aPriority] : 3;
+    const bScore = priorityOrder[bPriority] !== undefined ? priorityOrder[bPriority] : 3;
+    
+    // Use the higher priority (lower score) between urgency and color
+    const aFinal = Math.min(aScore, aColorPriority);
+    const bFinal = Math.min(bScore, bColorPriority);
+    
+    return aFinal - bFinal;
+  });
+
   tbody.innerHTML = '';
   scans.forEach(scan => {
     const urgency = getUrgencyForFinding(scan.ai_result);
     const time = scan.created_at ? formatTime(scan.created_at) : 'Just now';
+    const priorityColor = scan.priority_color || 'green';
+    const dotStyle = priorityColor === 'red' ? 'background:#E63946' : priorityColor === 'orange' ? 'background:#F4A261' : 'background:#2EC4B6';
+    
     tbody.innerHTML += `
-      <tr>
-        <td><strong>${escapeHtml(scan.patient_name || 'Unknown')}</strong></td>
+      <tr style="${priorityColor === 'red' ? 'background:rgba(230,57,70,0.03);' : ''}">
+        <td>
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;${dotStyle};margin-right:8px;"></span>
+          <strong>${escapeHtml(scan.patient_name || 'Unknown')}</strong>
+        </td>
         <td>${escapeHtml(scan.scan_type || 'N/A')}</td>
         <td>${escapeHtml(scan.ai_result || 'Pending')}</td>
         <td><span class="badge ${urgency.class}">${urgency.label}</span></td>

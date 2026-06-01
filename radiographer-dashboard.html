@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radiographer Dashboard — ScanFlow AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Mobile Menu Button -->
+  <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="8" fill="#0077B6"/>
+          <path d="M8 16C8 11.58 11.58 8 16 8C20.42 8 24 11.58 24 16" stroke="#00E5FF" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M12 16C12 13.79 13.79 12 16 12C18.21 12 20 13.79 20 16" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="2" fill="#fff"/>
+          <path d="M16 18V24" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        ScanFlow AI
+      </div>
+      <nav>
+        <a href="radiographer-dashboard.html" class="active">
+          <span>📊</span> My Scans
+        </a>
+        <a href="radiographer-upload.html">
+          <span>📤</span> Upload Scan
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">R</div>
+          <div>
+            <div class="user-name" id="userName">Radiographer</div>
+            <div class="user-role" id="userRole">Radiographer</div>
+          </div>
+        </div>
+        <button onclick="window.authUtils.logout()" style="margin-top:12px;background:rgba(255,255,255,0.1);color:#fff;padding:8px 16px;border-radius:8px;font-size:0.82rem;width:100%;transition:0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+          🚪 Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <div class="page-header">
+        <div>
+          <h1>Radiographer Dashboard</h1>
+          <p>Manage your uploaded scans and patient data</p>
+        </div>
+        <div class="actions">
+          <a href="radiographer-upload.html" class="btn btn-primary btn-sm">📤 Upload New Scan</a>
+        </div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stat-cards">
+        <div class="stat-card blue">
+          <div class="stat-icon">📁</div>
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">Total Uploads</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value" id="statReviewed">0</div>
+          <div class="stat-label">Reviewed</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-value" id="statPending">0</div>
+          <div class="stat-label">Pending Review</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon">🚨</div>
+          <div class="stat-value" id="statCritical">0</div>
+          <div class="stat-label">Critical Cases</div>
+        </div>
+      </div>
+
+      <!-- Uploads List -->
+      <div class="content-card">
+        <h2>📋 Recent Uploads</h2>
+        <div style="overflow-x:auto;">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Priority</th>
+                <th>Patient</th>
+                <th>Patient #</th>
+                <th>Scan Type</th>
+                <th>AI Finding</th>
+                <th>Urgency</th>
+                <th>Status</th>
+                <th>Uploaded</th>
+              </tr>
+            </thead>
+            <tbody id="uploadsTableBody">
+              <tr>
+                <td colspan="8" style="text-align:center;padding:32px;">
+                  <div class="spinner"></div>
+                  <p style="margin-top:12px;color:var(--text-light);font-size:0.85rem;">Loading uploads...</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="js/supabase-config.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/radiographer-dashboard.js"></script>
+
+</body>
+</html>

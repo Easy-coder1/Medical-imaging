@@ -30,11 +30,16 @@ if (registerForm) {
     const name = document.getElementById('regName').value.trim();
     const email = document.getElementById('regEmail').value.trim();
     const password = document.getElementById('regPassword').value;
-    const role = 'Radiologist';
+    const role = document.getElementById('regRole').value;
     const errorEl = document.getElementById('registerError');
     const btn = registerForm.querySelector('button[type="submit"]');
 
     hideError(errorEl);
+
+    if (!role) {
+      showError(errorEl, 'Please select an account type.');
+      return;
+    }
 
     if (password.length < 6) {
       showError(errorEl, 'Password must be at least 6 characters.');
@@ -47,7 +52,12 @@ if (registerForm) {
       localStorage.setItem('userRole', role);
       localStorage.setItem('userEmail', email);
       localStorage.setItem('demoMode', 'true');
-      window.location.href = 'dashboard.html';
+      // Redirect based on role
+      if (role === 'Radiographer') {
+        window.location.href = 'radiographer-dashboard.html';
+      } else {
+        window.location.href = 'dashboard.html';
+      }
       return;
     }
 
@@ -76,7 +86,13 @@ if (registerForm) {
 
       localStorage.setItem('userName', name);
       localStorage.setItem('userRole', role);
-      window.location.href = 'dashboard.html';
+      
+      // Redirect based on role
+      if (role === 'Radiographer') {
+        window.location.href = 'radiographer-dashboard.html';
+      } else {
+        window.location.href = 'dashboard.html';
+      }
     } catch (err) {
       const msg = err.message?.includes('already registered')
         ? 'An account with this email already exists.'
@@ -101,12 +117,17 @@ if (loginForm) {
     hideError(errorEl);
 
     if (!supabase) {
-      // Demo mode
+      // Demo mode - ask for role via prompt
+      const role = confirm('Click OK for Radiologist, Cancel for Radiographer') ? 'Radiologist' : 'Radiographer';
       localStorage.setItem('userName', email.split('@')[0]);
-      localStorage.setItem('userRole', 'Radiologist');
+      localStorage.setItem('userRole', role);
       localStorage.setItem('userEmail', email);
       localStorage.setItem('demoMode', 'true');
-      window.location.href = 'dashboard.html';
+      if (role === 'Radiographer') {
+        window.location.href = 'radiographer-dashboard.html';
+      } else {
+        window.location.href = 'dashboard.html';
+      }
       return;
     }
 
@@ -126,9 +147,16 @@ if (loginForm) {
         .eq('id', data.user.id)
         .single();
 
+      const role = profile?.role || 'Radiologist';
       localStorage.setItem('userName', profile?.name || email.split('@')[0]);
-      localStorage.setItem('userRole', profile?.role || 'Radiologist');
-      window.location.href = 'dashboard.html';
+      localStorage.setItem('userRole', role);
+      
+      // Redirect based on role
+      if (role === 'Radiographer') {
+        window.location.href = 'radiographer-dashboard.html';
+      } else {
+        window.location.href = 'dashboard.html';
+      }
     } catch (err) {
       let msg = 'Login failed. Please check your credentials.';
       if (err.message?.includes('Invalid login')) msg = 'Invalid email or password.';

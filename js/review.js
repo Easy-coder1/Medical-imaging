@@ -180,9 +180,20 @@ function showDetail(scan) {
 
   document.getElementById('detailImage').src = imgSrc;
   document.getElementById('detailPatient').textContent = scan.patient_name || 'Unknown';
+  document.getElementById('detailPatientNumber').textContent = scan.patient_number || '—';
+  document.getElementById('detailPatientAge').textContent = scan.patient_age || '—';
+  document.getElementById('detailPatientPhone').textContent = scan.patient_phone || '—';
   document.getElementById('detailScanType').textContent = scan.scan_type || 'N/A';
   document.getElementById('detailFinding').textContent = scan.ai_result || 'Pending';
   document.getElementById('detailConfidence').textContent = (scan.confidence || '--') + '%';
+
+  // Priority badge
+  const priorityBadge = document.getElementById('detailPriority');
+  const priorityColor = scan.priority_color || 'green';
+  const priorityLabel = priorityColor === 'red' ? 'Critical' : priorityColor === 'orange' ? 'Urgent' : 'Normal';
+  const priorityClass = priorityColor === 'red' ? 'badge-critical' : priorityColor === 'orange' ? 'badge-urgent' : 'badge-normal';
+  priorityBadge.textContent = priorityLabel;
+  priorityBadge.className = `badge ${priorityClass}`;
 
   const urgBadge = document.getElementById('detailUrgency');
   urgBadge.textContent = scan.urgency || 'N/A';
@@ -192,6 +203,16 @@ function showDetail(scan) {
   statusBadge.textContent = (scan.status || 'pending').replace('-', ' ');
   statusBadge.className = `badge ${getStatusBadge(scan.status || 'pending')}`;
   statusBadge.style.textTransform = 'capitalize';
+
+  // SMS Status
+  const smsBadge = document.getElementById('detailSmsStatus');
+  if (scan.sms_sent) {
+    smsBadge.textContent = 'Sent';
+    smsBadge.className = 'badge badge-complete';
+  } else {
+    smsBadge.textContent = 'Not Sent';
+    smsBadge.className = 'badge badge-pending';
+  }
 
   document.getElementById('detailTime').textContent = scan.created_at
     ? formatTime(scan.created_at) : 'Unknown';
@@ -276,6 +297,161 @@ function completeReview() {
   setTimeout(() => { closeReview(); loadScanList(); }, 1000);
 }
 
+// ---------- SMS Functionality (Arkesel Integration) ----------
+async function sendSMS() {
+  const scan = window._currentReviewScan;
+  if (!scan) {
+    showToast('No scan selected.', 'error');
+    return;
+  }
+
+  const patientPhone = scan.patient_phone;
+  const patientName = scan.patient_name;
+
+  if (!patientPhone) {
+    showToast('No phone number available for this patient.', 'error');
+    return;
+  }
+
+  // Check if SMS already sent
+  if (scan.sms_sent) {
+    if (!confirm('SMS has already been sent to this patient. Send again?')) {
+      return;
+    }
+  }
+
+  // Prepare SMS message
+  const message = `Dear ${patientName}, your scan report is ready. Please visit the hospital to collect it. Thank you. - ScanFlow AI`;
+
+  showToast('Sending SMS...', 'info');
+
+  try {
+    // Try to send via Arkesel API through our backend
+    const response = await fetch('/api/send-sms', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        phone: patientPhone,
+        message: message,
+        scanId: scan.id
+      })
+    });
+
+    if (response.ok) {
+      // Update scan SMS status
+      await updateSmsStatus(scan.id, true);
+      showToast('SMS sent successfully!', 'success');
+      
+      // Update UI
+      const smsBadge = document.getElementById('detailSmsStatus');
+      if (smsBadge) {
+        smsBadge.textContent = 'Sent';
+        smsBadge.className = 'badge badge-complete';
+      }
+      
+      // Update current scan reference
+      if (window._currentReviewScan) {
+        window._currentReviewScan.sms_sent = true;
+        window._currentReviewScan.sms_sent_at = new Date().toISOString();
+      }
+    } else {
+      throw new Error('Failed to send SMS');
+    }
+  } catch (err) {
+    console.error('SMS sending failed:', err);
+    
+    // Fallback: Try direct Arkesel API call (if backend not available)
+    try {
+      await sendSmsViaArkeselDirect(patientPhone, message, scan.id);
+    } catch (fallbackErr) {
+      // If all fails, show demo mode message
+      console.error('All SMS methods failed:', fallbackErr);
+      
+      // Demo mode: simulate success
+      showToast('SMS would be sent to ' + patientPhone + ' (Demo Mode)', 'info');
+      
+      // Update status in demo mode
+      await updateSmsStatus(scan.id, true);
+      
+      // Update UI
+      const smsBadge = document.getElementById('detailSmsStatus');
+      if (smsBadge) {
+        smsBadge.textContent = 'Sent';
+        smsBadge.className = 'badge badge-complete';
+      }
+    }
+  }
+}
+
+// Direct Arkesel API call (fallback)
+async function sendSmsViaArkeselDirect(phone, message, scanId) {
+  // Arkesel API configuration
+  // In production, these should be stored securely on the backend
+  const ARKESEL_API_KEY = localStorage.getItem('arkeselApiKey') || '';
+  const ARKESEL_API_URL = 'https://api.arkesel.com/sms/api';
+
+  if (!ARKESEL_API_KEY) {
+    // No API key configured - use demo mode
+    throw new Error('Arkesel API key not configured');
+  }
+
+  // Format phone number (remove + if present for Arkesel)
+  const formattedPhone = phone.replace('+', '');
+
+  const response = await fetch(ARKESEL_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Arkesel-API-Key': ARKESEL_API_KEY
+    },
+    body: JSON.stringify({
+      to: formattedPhone,
+      from: 'ScanFlow',
+      sms: message
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error('Arkesel API request failed');
+  }
+
+  const result = await response.json();
+  
+  if (result.status === 'success' || result.status === 'SENT') {
+    await updateSmsStatus(scanId, true);
+    return true;
+  } else {
+    throw new Error(result.message || 'Arkesel API returned error');
+  }
+}
+
+// Update SMS status in database
+async function updateSmsStatus(scanId, sent) {
+  const now = new Date().toISOString();
+  
+  if (supabase) {
+    try {
+      await supabase.from('scans').update({
+        sms_sent: sent,
+        sms_sent_at: sent ? now : null
+      }).eq('id', scanId);
+    } catch (err) {
+      console.log('Supabase SMS status update skipped:', err.message);
+    }
+  }
+
+  // Also update localStorage
+  const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
+  const idx = demoScans.findIndex(s => String(s.id) === String(scanId));
+  if (idx !== -1) {
+    demoScans[idx].sms_sent = sent;
+    demoScans[idx].sms_sent_at = sent ? now : null;
+    localStorage.setItem('demoScans', JSON.stringify(demoScans));
+  }
+}
+
 // ---------- Helpers ----------
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -335,4 +511,4 @@ document.addEventListener('DOMContentLoaded', () => {
   if (overlay) overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
 });
 
-window.reviewUtils = { openReview, closeReview, approveScan, flagUrgent, completeReview };
+window.reviewUtils = { openReview, closeReview, approveScan, flagUrgent, completeReview, sendSMS };

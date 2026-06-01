@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Upload Scan — Radiographer — ScanFlow AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Priority Selector Styles */
+    .priority-selector {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+    .priority-option {
+      flex: 1;
+      padding: 16px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: var(--transition);
+      text-align: center;
+      background: #FAFBFC;
+    }
+    .priority-option:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+    .priority-option.selected {
+      border-width: 3px;
+    }
+    .priority-option.critical.selected {
+      border-color: #E63946;
+      background: rgba(230,57,70,0.05);
+    }
+    .priority-option.urgent.selected {
+      border-color: #F4A261;
+      background: rgba(244,162,97,0.05);
+    }
+    .priority-option.normal.selected {
+      border-color: #2EC4B6;
+      background: rgba(46,196,182,0.05);
+    }
+    .priority-dot {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      margin: 0 auto 8px;
+    }
+    .priority-dot.critical { background: #E63946; box-shadow: 0 0 12px rgba(230,57,70,0.5); }
+    .priority-dot.urgent { background: #F4A261; box-shadow: 0 0 12px rgba(244,162,97,0.5); }
+    .priority-dot.normal { background: #2EC4B6; box-shadow: 0 0 12px rgba(46,196,182,0.5); }
+    .priority-label {
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 4px;
+    }
+    .priority-desc {
+      font-size: 0.78rem;
+      color: var(--text-light);
+    }
+    .priority-option.critical .priority-label { color: #E63946; }
+    .priority-option.urgent .priority-label { color: #F4A261; }
+    .priority-option.normal .priority-label { color: #2EC4B6; }
+  </style>
+</head>
+<body>
+
+  <!-- Mobile Menu Button -->
+  <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="8" fill="#0077B6"/>
+          <path d="M8 16C8 11.58 11.58 8 16 8C20.42 8 24 11.58 24 16" stroke="#00E5FF" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M12 16C12 13.79 13.79 12 16 12C18.21 12 20 13.79 20 16" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="2" fill="#fff"/>
+          <path d="M16 18V24" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        ScanFlow AI
+      </div>
+      <nav>
+        <a href="radiographer-dashboard.html">
+          <span>📊</span> My Scans
+        </a>
+        <a href="radiographer-upload.html" class="active">
+          <span>📤</span> Upload Scan
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">R</div>
+          <div>
+            <div class="user-name" id="userName">Radiographer</div>
+            <div class="user-role" id="userRole">Radiographer</div>
+          </div>
+        </div>
+        <button onclick="window.authUtils.logout()" style="margin-top:12px;background:rgba(255,255,255,0.1);color:#fff;padding:8px 16px;border-radius:8px;font-size:0.82rem;width:100%;transition:0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+          🚪 Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <div class="page-header">
+        <div>
+          <h1>Upload Scan</h1>
+          <p>Upload a medical image with patient information</p>
+        </div>
+        <div class="actions">
+          <a href="radiographer-dashboard.html" class="btn btn-secondary btn-sm">📊 View My Scans</a>
+        </div>
+      </div>
+
+      <div class="upload-form" style="max-width: 720px;">
+
+        <!-- Dropzone -->
+        <div class="upload-dropzone" id="dropzone">
+          <input type="file" id="fileInput" accept=".jpg,.jpeg,.png">
+          <div class="upload-icon">📤</div>
+          <h3>Drop your scan image here</h3>
+          <p>or click to browse — Supports JPG, PNG (max 10MB)</p>
+          <div class="upload-preview" id="uploadPreview">
+            <img id="previewImage" alt="Preview">
+          </div>
+        </div>
+
+        <!-- Patient Information Form -->
+        <form id="uploadForm">
+          <div class="content-card" style="padding: 24px; margin-bottom: 24px;">
+            <h3 style="margin-bottom: 20px; font-size: 1.1rem;">📋 Patient Information</h3>
+            
+            <div class="form-row">
+              <div class="form-group">
+                <label for="patientName">Patient Name *</label>
+                <input type="text" id="patientName" placeholder="e.g. John Smith" required>
+              </div>
+              <div class="form-group">
+                <label for="patientNumber">Patient Number *</label>
+                <input type="text" id="patientNumber" placeholder="e.g. P-12345" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="patientAge">Age *</label>
+                <input type="number" id="patientAge" placeholder="e.g. 45" min="0" max="150" required>
+              </div>
+              <div class="form-group">
+                <label for="patientPhone">Phone Number *</label>
+                <input type="tel" id="patientPhone" placeholder="e.g. +233XXXXXXXXX" required>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+              <label for="patientHistory">Patient History / Clinical Notes</label>
+              <textarea id="patientHistory" rows="3" placeholder="Enter relevant clinical history, symptoms, or notes..." style="width:100%;padding:12px 16px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.92rem;font-family:inherit;color:var(--text);background:#FAFBFC;resize:vertical;"></textarea>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label for="scanType">Scan Type *</label>
+                <select id="scanType" required>
+                  <option value="">Select scan type...</option>
+                  <option value="CT Brain">CT Brain</option>
+                  <option value="CT Chest">CT Chest</option>
+                  <option value="CT Abdomen">CT Abdomen</option>
+                  <option value="MRI Brain">MRI Brain</option>
+                  <option value="MRI Spine">MRI Spine</option>
+                  <option value="X-Ray Chest">X-Ray Chest</option>
+                  <option value="X-Ray Knee">X-Ray Knee</option>
+                  <option value="X-Ray Spine">X-Ray Spine</option>
+                  <option value="Ultrasound">Ultrasound</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Priority Selector -->
+          <div class="content-card" style="padding: 24px; margin-bottom: 24px;">
+            <h3 style="margin-bottom: 16px; font-size: 1.1rem;">🚦 Priority Level</h3>
+            <p style="color: var(--text-light); font-size: 0.85rem; margin-bottom: 20px;">
+              Select the priority level for this case. This helps radiologists prioritize their review queue.
+            </p>
+            
+            <div class="priority-selector">
+              <div class="priority-option critical selected" data-priority="red" onclick="selectPriority(this)">
+                <div class="priority-dot critical"></div>
+                <div class="priority-label">Critical</div>
+                <div class="priority-desc">Life-threatening, immediate attention needed</div>
+              </div>
+              <div class="priority-option urgent" data-priority="orange" onclick="selectPriority(this)">
+                <div class="priority-dot urgent"></div>
+                <div class="priority-label">Urgent</div>
+                <div class="priority-desc">Needs prompt attention within hours</div>
+              </div>
+              <div class="priority-option normal" data-priority="green" onclick="selectPriority(this)">
+                <div class="priority-dot normal"></div>
+                <div class="priority-label">Normal</div>
+                <div class="priority-desc">Routine review, no immediate concern</div>
+              </div>
+            </div>
+            <input type="hidden" id="priorityColor" value="red">
+          </div>
+
+          <button type="submit" id="submitBtn" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 1rem;">
+            ⚡ Upload & Submit for Review
+          </button>
+        </form>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="js/supabase-config.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/radiographer-upload.js"></script>
+
+</body>
+</html>

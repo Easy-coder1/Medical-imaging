@@ -30,6 +30,52 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ---------- SMS: Send via Arkesel ----------
+app.post('/api/send-sms', async (req, res) => {
+  const ARKESEL_API_KEY = process.env.ARKESEL_API_KEY;
+
+  if (!ARKESEL_API_KEY) {
+    return res.status(500).json({ error: 'ARKESEL_API_KEY not configured on server' });
+  }
+
+  const { phone, message } = req.body;
+
+  if (!phone || !message) {
+    return res.status(400).json({ error: 'Missing phone number or message' });
+  }
+
+  try {
+    // Format phone number (remove + if present for Arkesel)
+    const formattedPhone = phone.replace('+', '');
+
+    const response = await fetch('https://api.arkesel.com/sms/api', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Arkesel-API-Key': ARKESEL_API_KEY
+      },
+      body: JSON.stringify({
+        to: formattedPhone,
+        from: 'ScanFlow',
+        sms: message
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      return res.status(response.status).json({ error: errorData.message || 'Arkesel API error' });
+    }
+
+    const result = await response.json();
+    console.log(`[SMS] Sent to ${phone}: ${message.substring(0, 50)}...`);
+    res.json({ status: 'success', message: 'SMS sent', result });
+
+  } catch (err) {
+    console.error('[SMS] Error:', err.message);
+    res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});
+
 // ---------- Proxy: Analyze Image via Gemini ----------
 app.post('/api/analyze', async (req, res) => {
   if (!GEMINI_API_KEY || GEMINI_API_KEY.length <= 10) {
@@ -220,13 +266,20 @@ if (require.main === module) {
     console.log('  ╠══════════════════════════════════════════════╣');
     console.log(`  ║  🌐 Server running at: http://localhost:${PORT}  ║`);
     console.log(`  ║  🤖 AI Model: ${GEMINI_MODEL.padEnd(29)}║`);
-    console.log(`  ║  🔑 API Key: ${GEMINI_API_KEY ? '✅ Configured' : '❌ NOT SET'.padEnd(29)}║`);
+    console.log(`  ║  🔑 Gemini API: ${GEMINI_API_KEY ? '✅ Configured' : '❌ NOT SET'.padEnd(27)}║`);
+    console.log(`  ║  📱 Arkesel SMS: ${process.env.ARKESEL_API_KEY ? '✅ Configured' : '❌ NOT SET'.padEnd(25)}║`);
     console.log('  ╚══════════════════════════════════════════════╝');
     console.log('');
     if (!GEMINI_API_KEY || GEMINI_API_KEY.length <= 10) {
       console.log('  ⚠️  WARNING: No valid GEMINI_API_KEY found in .env file!');
       console.log('  → Create a .env file in the project root with:');
       console.log('    GEMINI_API_KEY=AIzaSy-your-key-here');
+      console.log('');
+    }
+    if (!process.env.ARKESEL_API_KEY) {
+      console.log('  ⚠️  WARNING: No ARKESEL_API_KEY found in .env file!');
+      console.log('  → SMS notifications will use demo mode.');
+      console.log('  → Add to .env: ARKESEL_API_KEY=your-arkesel-api-key');
       console.log('');
     }
   });

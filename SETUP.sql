@@ -18,15 +18,23 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS scans (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   patient_name TEXT NOT NULL,
+  patient_number TEXT,
+  patient_age INTEGER,
+  patient_phone TEXT,
+  patient_history TEXT,
   scan_type TEXT NOT NULL,
   image_url TEXT,
   ai_result TEXT,
   confidence INTEGER,
   urgency TEXT,
+  priority_color TEXT DEFAULT 'green', -- red, orange, green (manual override by radiographer)
   status TEXT DEFAULT 'pending',
   reviewed_by TEXT,
   review_note TEXT,
   reviewed_at TIMESTAMPTZ,
+  uploaded_by UUID REFERENCES auth.users(id),
+  sms_sent BOOLEAN DEFAULT FALSE,
+  sms_sent_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
