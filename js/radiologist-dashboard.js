@@ -1,6 +1,7 @@
 ﻿// ===== ScanFlow AI â€” Radiologist Dashboard Module =====
 import { supabase } from './supabase-config.js';
 import { isAIConfigured, analyzeImageWithAI, sendChatMessage } from './ai-config.js';
+import { sendRealSMS, buildScanResultMessage, buildUrgentScanMessage } from './sms-service.js';
 import {
   setupRealtimeSync,
   broadcastScanChange,
@@ -490,10 +491,54 @@ function saveLocalScansLocal(scans) {
   } catch (e) { /* ignore */ }
 }
 
+async function autoSendSmsOnReview(scan) {
+  if (!scan) return;
+  
+  const phone = scan.patient_phone;
+  if (!phone) {
+    console.log('[SMS] No patient phone number — cannot auto-send SMS.');
+    return;
+  }
+
+  // Don't send if already sent
+  if (scan.sms_sent) {
+    console.log('[SMS] SMS already sent for this scan — skipping.');
+    return;
+  }
+
+  // Build appropriate message based on urgency
+  const urgency = scan.urgency || 'Normal';
+  const isCriticalOrUrgent = (urgency === 'Critical' || urgency === 'Urgent' || scan.priority_color === 'red' || scan.priority_color === 'orange');
+  const message = isCriticalOrUrgent ? buildUrgentScanMessage(scan) : buildScanResultMessage(scan);
+
+  try {
+    console.log(`[SMS] Auto-sending real SMS to ${phone} for ${scan.patient_name}...`);
+    await sendRealSMS(phone, message);
+    
+    // Mark SMS as sent in database + localStorage
+    await updateSmsStatus(scan.id, true);
+    
+    if (_currentScan && String(_currentScan.id) === String(scan.id)) {
+      _currentScan.sms_sent = true;
+      _currentScan.sms_sent_at = new Date().toISOString();
+    }
+    
+    console.log(`[SMS] ✓ Auto-SMS sent to ${phone}`);
+    showToast(`📨 SMS sent to ${scan.patient_name || 'patient'}`, 'success');
+  } catch (err) {
+    // Log the error but don't block the review process
+    console.error(`[SMS] Failed to auto-send SMS to ${phone}:`, err.message);
+    showToast(`⚠ SMS delivery failed: ${err.message}. The review was still saved.`, 'info');
+  }
+}
+
 async function approveScan() {
   if (!_currentScan) return;
-  await updateScanStatus(_currentScan.id, 'completed', 'Approved by radiologist');
+  const scan = _currentScan;
+  await updateScanStatus(scan.id, 'completed', 'Approved by radiologist');
   showToast('Scan approved successfully!', 'success');
+  // Auto-send real SMS to patient
+  await autoSendSmsOnReview(scan);
   setTimeout(() => { closeDetail(); renderScans(); renderStatsFromState(); renderCriticalAlertsFromState(); }, 600);
 }
 function flagUrgent() {
@@ -504,12 +549,17 @@ function flagUrgent() {
 }
 async function completeReview() {
   if (!_currentScan) return;
-  await updateScanStatus(_currentScan.id, 'completed', 'Review completed');
+  const scan = _currentScan;
+  await updateScanStatus(scan.id, 'completed', 'Review completed');
   showToast('Review completed!', 'success');
+  // Auto-send real SMS to patient
+  await autoSendSmsOnReview(scan);
   setTimeout(() => { closeDetail(); renderScans(); renderStatsFromState(); renderCriticalAlertsFromState(); }, 600);
 }
 
-// ---------- SMS: Show composer modal ----------
+// ---------- SMS: Show composer modal (Manual SMS) ----------
+// This sends a REAL SMS via the server (no demo fallback).
+// Auto-SMS is handled in approveScan / completeReview above.
 function sendSMS() {
   const scan = _currentScan;
   if (!scan) { showToast('No scan selected.', 'error'); return; }
@@ -529,7 +579,10 @@ function sendSMS() {
       <h3 style="color:var(--primary);margin:0 0 4px 0;">&#128241; Send SMS to Patient</h3>
       <p style="color:var(--text-light);font-size:0.85rem;margin:0 0 16px 0;">
         To: <strong>${escapeHtml(patientName)}</strong> &mdash; ${escapeHtml(patientPhone)}
-        ${scan.sms_sent ? '<br><span style="color:#F4A261;">&#9888; SMS was already sent before. Sending again will notify the patient.</span>' : ''}
+        ${scan.sms_sent ? '<br><span style="color:#F4A261;">&#9888; Sent previously. Re-sending will notify the patient again.</span>' : ''}
+      </p>
+      <p style="font-size:0.78rem;color:#E63946;margin:0 0 12px 0;">
+        &#9888; SMS is sent via Arkesel. Requires ARKESEL_API_KEY configured on server.
       </p>
       <div class="form-group" style="margin-bottom:16px;">
         <label for="smsMessage" style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--text);">Your Message</label>
@@ -559,29 +612,20 @@ Thank you.
     sendBtn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;margin:0;display:inline-block;vertical-align:middle;"></span> Sending...';
 
     try {
-      const response = await fetch('/api/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: patientPhone, message, scanId: scan.id })
-      });
-      if (response.ok) {
-        await updateSmsStatus(scan.id, true);
-        showToast('SMS sent successfully!', 'success');
-        const smsBadge = document.getElementById('detailSmsStatus');
-        if (smsBadge) { smsBadge.textContent = 'Sent'; smsBadge.className = 'badge badge-complete'; }
-        if (_currentScan) { _currentScan.sms_sent = true; _currentScan.sms_sent_at = new Date().toISOString(); }
-        close();
-      } else {
-        throw new Error('Failed to send SMS');
-      }
-    } catch (err) {
-      // Demo mode fallback
+      // Send REAL SMS — no demo fallback. If the server has no ARKESEL_API_KEY,
+      // the server will return a clear error message.
+      await sendRealSMS(patientPhone, message);
+      
       await updateSmsStatus(scan.id, true);
-      showToast('SMS sent in demo mode to ' + patientPhone, 'success');
+      showToast('SMS sent successfully!', 'success');
       const smsBadge = document.getElementById('detailSmsStatus');
       if (smsBadge) { smsBadge.textContent = 'Sent'; smsBadge.className = 'badge badge-complete'; }
       if (_currentScan) { _currentScan.sms_sent = true; _currentScan.sms_sent_at = new Date().toISOString(); }
       close();
+    } catch (err) {
+      showToast(`SMS failed: ${err.message}`, 'error');
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = '&#128241; Send SMS';
     }
   };
 }

@@ -54,48 +54,76 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ---------- SMS: Send via Arkesel ----------
+// ---------- SMS: Send a Real SMS via Arkesel ----------
+// Uses the Arkesel SMS API with GET request + query parameters.
+// Endpoint: https://sms.arkesel.com/sms/api?action=send-sms&api_key=KEY&to=PHONE&from=SENDER&sms=MESSAGE
 app.post('/api/send-sms', async (req, res) => {
   const ARKESEL_API_KEY = process.env.ARKESEL_API_KEY;
 
   if (!ARKESEL_API_KEY) {
-    return res.status(500).json({ error: 'ARKESEL_API_KEY not configured on server' });
+    console.error('[SMS] ARKESEL_API_KEY is not configured on server.');
+    return res.status(500).json({
+      error: 'ARKESEL_API_KEY not configured. Set ARKESEL_API_KEY in your .env file to send real SMS messages.'
+    });
   }
 
   const { phone, message } = req.body;
 
-  if (!phone || !message) {
-    return res.status(400).json({ error: 'Missing phone number or message' });
+  if (!phone || !phone.trim()) {
+    return res.status(400).json({ error: 'Missing required field: phone' });
+  }
+  if (!message || !message.trim()) {
+    return res.status(400).json({ error: 'Missing required field: message' });
+  }
+
+  // Normalize phone: remove '+', spaces, dashes
+  const formattedPhone = phone.replace(/[\s\-\+\(\)]/g, '');
+  if (formattedPhone.length < 10) {
+    return res.status(400).json({ error: `Invalid phone number: "${phone}". Must include country code (e.g. +233XXXXXXXXX).` });
   }
 
   try {
-    const formattedPhone = phone.replace('+', '');
+    console.log(`[SMS] Sending real SMS to ${formattedPhone} via Arkesel...`);
 
-    const response = await fetch('https://api.arkesel.com/sms/api', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Arkesel-API-Key': ARKESEL_API_KEY
-      },
-      body: JSON.stringify({
-        to: formattedPhone,
-        from: 'ScanFlow',
-        sms: message
-      })
+    // Arkesel API uses GET with query parameters
+    const apiUrl = `https://sms.arkesel.com/sms/api?action=send-sms&api_key=${encodeURIComponent(ARKESEL_API_KEY)}&to=${encodeURIComponent(formattedPhone)}&from=${encodeURIComponent('ScanFlow')}&sms=${encodeURIComponent(message)}`;
+
+    console.log(`[SMS] Arkesel URL (key hidden): https://sms.arkesel.com/sms/api?action=send-sms&api_key=***&to=${formattedPhone}&from=ScanFlow&sms=${message.substring(0, 30).replace(/[^a-zA-Z0-9 ]/g, '')}...`);
+
+    const response = await fetch(apiUrl, {
+      method: 'GET'
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      return res.status(response.status).json({ error: errorData.message || 'Arkesel API error' });
+    // Read response body
+    const text = await response.text();
+    console.log(`[SMS] Arkesel raw response: ${text.substring(0, 200)}`);
+
+    // Parse JSON if possible
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch {
+      result = { raw: text };
     }
 
-    const result = await response.json();
-    console.log(`[SMS] Sent to ${phone}: ${message.substring(0, 50)}...`);
-    res.json({ status: 'success', message: 'SMS sent', result });
+    if (!response.ok) {
+      const errorDetail = result?.message || result?.error || `Arkesel API returned HTTP ${response.status}`;
+      console.error(`[SMS] Arkesel error (${response.status}): ${errorDetail}`);
+      return res.status(response.status).json({ error: errorDetail, detail: result });
+    }
+
+    console.log(`[SMS] ✓ Real SMS sent to ${formattedPhone}: "${message.substring(0, 60)}..."`);
+    res.json({
+      status: 'success',
+      message: 'SMS sent successfully',
+      provider: 'Arkesel',
+      recipient: formattedPhone,
+      result
+    });
 
   } catch (err) {
-    console.error('[SMS] Error:', err.message);
-    res.status(500).json({ error: 'Server error: ' + err.message });
+    console.error('[SMS] Network/server error:', err.message);
+    res.status(500).json({ error: 'SMS delivery failed: ' + err.message });
   }
 });
 
