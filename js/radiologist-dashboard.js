@@ -1,4 +1,4 @@
-// ===== ScanFlow AI â€” Radiologist Dashboard Module =====
+// ===== ScanFlow AI — Radiologist Dashboard Module =====
 import { supabase } from './supabase-config.js';
 import './auth.js';
 import { isAIConfigured, analyzeImageWithAI, sendChatMessage } from './ai-config.js';
@@ -70,8 +70,8 @@ function showToast(message, type = 'info') {
   }
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  const icons = { success: 'âœ“', error: 'âœ—', info: 'â„¹' };
-  toast.innerHTML = `<span>${icons[type] || 'â„¹'}</span> ${message}`;
+  const icons = { success: '\u2714', error: '\u2718', info: '\u2139' };
+  toast.innerHTML = `<span>${icons[type] || '\u2139'}</span> ${message}`;
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = '0';
@@ -176,7 +176,7 @@ function renderCriticalAlertsFromState() {
   if (criticalScans.length === 0) {
     container.innerHTML = `
       <div style="text-align:center;padding:16px;color:var(--success);">
-        <div style="font-size:1.5rem;margin-bottom:8px;">âœ…</div>
+        <div style="font-size:1.5rem;margin-bottom:8px;">&#9989;</div>
         <p style="font-size:0.9rem;">No critical cases pending!</p>
       </div>`;
     return;
@@ -188,7 +188,7 @@ function renderCriticalAlertsFromState() {
       <div class="alert-item" style="cursor:pointer;" onclick="window.dashUtils.openScanDetail('${idStr}')">
         <div class="alert-dot"></div>
         <span class="alert-text">
-          <strong>${escapeHtml(scan.patient_name || 'Unknown')}</strong> â€”
+          <strong>${escapeHtml(scan.patient_name || 'Unknown')}</strong> &mdash;
           ${escapeHtml(scan.ai_result || 'Analysis pending')}
           <br>
           <span style="font-size:0.78rem;color:var(--text-light);">
@@ -282,13 +282,13 @@ function renderScans() {
       : 'No scans found for this filter.';
     const status = getRealtimeStatus();
     const statusHint = (status === 'SUBSCRIBED')
-      ? '<p style="color:var(--success);font-size:0.8rem;margin-top:8px;">ðŸŸ¢ Live updates active â€” new uploads will appear instantly.</p>'
+      ? '<p style="color:var(--success);font-size:0.8rem;margin-top:8px;">🟢 Live updates active — new uploads will appear instantly.</p>'
       : (status === 'demo'
-        ? '<p style="color:var(--text-light);font-size:0.8rem;margin-top:8px;">â„¹ï¸ Running in demo mode â€” open this page in another tab and upload a scan to see live updates.</p>'
-        : '<p style="color:var(--text-light);font-size:0.8rem;margin-top:8px;">â³ Connecting to live updatesâ€¦</p>');
+        ? '<p style="color:var(--text-light);font-size:0.8rem;margin-top:8px;">ℹ️ Running in demo mode — open this page in another tab and upload a scan to see live updates.</p>'
+        : '<p style="color:var(--text-light);font-size:0.8rem;margin-top:8px;">⏳ Connecting to live updates...</p>');
     grid.innerHTML = `
       <div style="text-align:center;padding:60px 24px;grid-column:1/-1;">
-        <div style="font-size:3rem;margin-bottom:12px;opacity:0.3;">ðŸ“­</div>
+        <div style="font-size:3rem;margin-bottom:12px;opacity:0.3;">🗭</div>
         <p style="color:var(--text-light);font-size:0.9rem;">${message}</p>
         ${allScans.length === 0 ? statusHint : ''}
       </div>`;
@@ -311,14 +311,14 @@ function renderScans() {
         <div class="card-header">
           <div>
             <div class="patient-name">${escapeHtml(scan.patient_name || 'Unknown')}</div>
-            <div class="scan-type">${escapeHtml(scan.scan_type || 'N/A')} | Age: ${scan.patient_age || 'â€”'}</div>
+            <div class="scan-type">${escapeHtml(scan.scan_type || 'N/A')} | Age: ${scan.patient_age || '—'}</div>
           </div>
           <span class="badge ${priority === 'critical' ? 'badge-critical' : priority === 'urgent' ? 'badge-urgent' : 'badge-normal'}">${priorityLabel}</span>
         </div>
         <div class="ai-finding">${escapeHtml(scan.ai_result || 'Pending analysis...')}</div>
         <div class="card-footer">
-          <div class="confidence">Confidence: <strong>${scan.confidence || 'â€”'}%</strong></div>
-          <div class="time-ago">ðŸ• ${time}</div>
+          <div class="confidence">Confidence: <strong>${scan.confidence || '—'}%</strong></div>
+          <div class="time-ago">🕒 ${time}</div>
         </div>
         <div style="margin-top:12px;">
           ${getStatusBadge(scan.status)}
@@ -341,7 +341,7 @@ function filterScans(filter) {
 function openScanDetail(scanId) {
   const scan = allScans.find(s => String(s.id) === String(scanId));
   if (!scan) {
-    showToast('Scan not found. Refreshing listâ€¦', 'info');
+    showToast('Scan not found. Refreshing list…', 'info');
     loadScans(false);
     return;
   }
@@ -361,9 +361,9 @@ function showDetail(scan) {
 
   document.getElementById('detailImage').src = imgSrc;
   document.getElementById('detailPatient').textContent = scan.patient_name || 'Unknown';
-  document.getElementById('detailPatientNumber').textContent = scan.patient_number || 'â€”';
-  document.getElementById('detailPatientAge').textContent = scan.patient_age || 'â€”';
-  document.getElementById('detailPatientPhone').textContent = scan.patient_phone || 'â€”';
+  document.getElementById('detailPatientNumber').textContent = scan.patient_number || '—';
+  document.getElementById('detailPatientAge').textContent = scan.patient_age || '—';
+  document.getElementById('detailPatientPhone').textContent = scan.patient_phone || '—';
   document.getElementById('detailScanType').textContent = scan.scan_type || 'N/A';
   document.getElementById('detailFinding').textContent = scan.ai_result || 'Pending';
   document.getElementById('detailConfidence').textContent = (scan.confidence || '--') + '%';
@@ -395,7 +395,7 @@ function showDetail(scan) {
 
   document.getElementById('detailTime').textContent = scan.created_at ? formatTime(scan.created_at) : 'Unknown';
   const engineEl = document.getElementById('detailEngine');
-  if (engineEl) engineEl.textContent = scan.ai_engine || 'â€”';
+  if (engineEl) engineEl.textContent = scan.ai_engine || '—';
 
   const analysisSection = document.getElementById('detailAnalysisSection');
   const analysisEl = document.getElementById('detailAnalysis');
@@ -403,8 +403,8 @@ function showDetail(scan) {
   const hasDetails = scan.ai_details || scan.ai_recommendations;
   if (analysisSection && hasDetails) {
     analysisSection.style.display = 'block';
-    if (analysisEl) analysisEl.textContent = scan.ai_details || 'â€”';
-    if (recsEl) recsEl.textContent = scan.ai_recommendations || 'â€”';
+    if (analysisEl) analysisEl.textContent = scan.ai_details || '—';
+    if (recsEl) recsEl.textContent = scan.ai_recommendations || '—';
   } else if (analysisSection) {
     analysisSection.style.display = 'none';
   }
@@ -779,7 +779,7 @@ async function runAIAnalysis() {
   } catch (err) {
     showToast('Analysis failed: ' + err.message, 'error');
   } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = 'ðŸ¤– Analyze with AI'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '&#129302; Analyze with AI'; }
   }
 }
 
@@ -973,7 +973,7 @@ function renderAllScansTable() {
   if (_allScansCache.length === 0) {
     container.innerHTML = `
       <div class="all-scans-empty">
-        <div class="empty-icon">ðŸ“­</div>
+        <div class="empty-icon">&#128247;</div>
         <h3 style="margin:0 0 8px 0;color:var(--text);">No scans available</h3>
         <p style="margin:0;font-size:0.9rem;">Scans uploaded by radiographers will appear here automatically.</p>
       </div>`;
@@ -982,7 +982,7 @@ function renderAllScansTable() {
   if (list.length === 0) {
     container.innerHTML = `
       <div class="all-scans-empty">
-        <div class="empty-icon">ðŸ”</div>
+        <div class="empty-icon">&#128269;</div>
         <h3 style="margin:0 0 8px 0;color:var(--text);">No scans match your search</h3>
         <p style="margin:0;font-size:0.9rem;">Try a different keyword.</p>
       </div>`;
@@ -998,10 +998,10 @@ function renderAllScansTable() {
     const safeId = String(scan.id).replace(/'/g, "\\'");
     const patient = escapeHtml(scan.patient_name || 'Unknown');
     const scanType = escapeHtml(scan.scan_type || 'N/A');
-    const patientNumber = escapeHtml(scan.patient_number || 'â€”');
+    const patientNumber = escapeHtml(scan.patient_number || '—');
     const aiResult = escapeHtml(scan.ai_result || 'Pending analysis');
-    const time = scan.created_at ? formatTime(scan.created_at) : 'â€”';
-    const confidence = (scan.confidence != null && scan.confidence !== '') ? scan.confidence + '%' : 'â€”';
+    const time = scan.created_at ? formatTime(scan.created_at) : '—';
+    const confidence = (scan.confidence != null && scan.confidence !== '') ? scan.confidence + '%' : '—';
     const status = (scan.status || 'pending').replace('-', ' ');
     const statusClass = scan.status === 'completed' ? 'badge-complete'
       : scan.status === 'urgent-flagged' ? 'badge-urgent' : 'badge-pending';
@@ -1013,7 +1013,7 @@ function renderAllScansTable() {
             <img class="patient-thumb" src="${imgSrc}" alt="Scan" onerror="this.src='${generatePlaceholder(scan.scan_type)}'">
             <div>
               <div class="patient-name">${patient}</div>
-              <div class="patient-meta">#${patientNumber} Â· Age ${scan.patient_age || 'â€”'}</div>
+              <div class="patient-meta">#${patientNumber} &middot; Age ${scan.patient_age || '—'}</div>
             </div>
           </div>
         </td>
@@ -1077,15 +1077,15 @@ function confirmDeleteScan(scanId) {
   modal.className = 'modal-backdrop';
   modal.innerHTML = `
     <div class="modal-card" onclick="event.stopPropagation()">
-      <h3>ðŸ—‘ï¸ Delete this scan?</h3>
-      <div class="modal-patient">
-        <strong>${escapeHtml(scan.patient_name || 'Unknown')}</strong>
-        <br>${escapeHtml(scan.scan_type || 'N/A')} Â· Uploaded ${scan.created_at ? formatTime(scan.created_at) : 'â€”'}
+      <h3>&#128465; Delete this scan?</h3>
+      <p style="color:var(--text-light);font-size:0.9rem;margin:0 0 20px 0;">
+        Are you sure you want to permanently delete the scan for <strong>${escapeHtml(scan.patient_name || 'Unknown')}</strong>?<br>
+        <br>${escapeHtml(scan.scan_type || 'N/A')} &middot; Uploaded ${scan.created_at ? formatTime(scan.created_at) : '—'}
       </div>
       <p>This action is permanent. The scan, its AI analysis, and review history will be removed for everyone.</p>
       <div class="modal-actions">
         <button class="btn btn-secondary btn-sm" id="cancelDeleteBtn" style="background:#fff;border:1.5px solid var(--border);color:var(--text);">Cancel</button>
-        <button class="btn btn-danger btn-sm" id="confirmDeleteBtn">ðŸ—‘ï¸ Yes, delete</button>
+        <button class="btn btn-danger btn-sm" id="confirmDeleteBtn">&#128465; Yes, delete</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
@@ -1097,13 +1097,13 @@ function confirmDeleteScan(scanId) {
   if (confirmBtn) {
     confirmBtn.addEventListener('click', async () => {
       confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Deletingâ€¦';
+      confirmBtn.textContent = 'Deleting...';
       try {
         await deleteScan(scanId);
         closeModal();
       } catch (err) {
         confirmBtn.disabled = false;
-        confirmBtn.textContent = 'ðŸ—‘ï¸ Yes, delete';
+        confirmBtn.textContent = '&#128465; Yes, delete';
       }
     });
   }
