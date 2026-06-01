@@ -10,6 +10,48 @@ let lastError = null;
 let _currentScan = null;
 let _currentAIContext = null;
 
+// ---------- Section Switching ----------
+function showSection(name) {
+  const dashboard = document.getElementById('dashboardSection');
+  const allScans = document.getElementById('allScansSection');
+  const detailView = document.getElementById('detailView');
+  const filterTabs = document.querySelector('.filter-tabs');
+  const criticalSection = document.querySelector('.content-card[style*="border-left: 5px solid #E63946"]');
+
+  // Update sidebar active state
+  document.querySelectorAll('.sidebar nav a[data-nav]').forEach(a => {
+    a.classList.toggle('active', a.dataset.nav === name);
+  });
+
+  if (name === 'all-scans') {
+    if (dashboard) dashboard.classList.add('section-hidden');
+    if (allScans) allScans.classList.remove('section-hidden');
+    // Ensure detail view is hidden
+    if (detailView) detailView.style.display = 'none';
+    if (filterTabs) filterTabs.style.display = '';
+    if (criticalSection) criticalSection.style.display = '';
+    // Close mobile sidebar if open
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('show');
+    // Load the all scans view
+    loadAllScansView();
+  } else {
+    // Default to dashboard
+    if (dashboard) dashboard.classList.remove('section-hidden');
+    if (allScans) allScans.classList.add('section-hidden');
+    // Close mobile sidebar if open
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('show');
+  }
+}
+
+// Expose for inline onclick
+window.showSection = showSection;
+
 // ---------- Toast ----------
 function showToast(message, type = 'info') {
   let container = document.querySelector('.toast-container');
@@ -780,6 +822,252 @@ document.addEventListener('DOMContentLoaded', () => {
   if (overlay) overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
 });
 
+// ============================================================
+// ---------- All Scans Section ------------------------------
+// ============================================================
+
+// All-scans view state
+let _allScansCache = [];
+let _allScansFilterText = '';
+
+// Render the all-scans table
+async function loadAllScansView() {
+  const container = document.getElementById('allScansTableContainer');
+  if (!container) return;
+
+  container.innerHTML = `
+    <div style="text-align:center;padding:60px 24px;">
+      <div class="spinner"></div>
+      <p style="margin-top:12px;color:var(--text-light);font-size:0.85rem;">Loading all scans...</p>
+    </div>`;
+
+  _allScansCache = await collectAllScans();
+
+  // Sort newest first
+  _allScansCache.sort((a, b) => {
+    const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  renderAllScansTable();
+}
+
+function renderAllScansTable() {
+  const container = document.getElementById('allScansTableContainer');
+  const countEl = document.getElementById('allScansCount');
+  if (!container) return;
+
+  const q = (_allScansFilterText || '').trim().toLowerCase();
+  const list = q
+    ? _allScansCache.filter(s => {
+        const hay = [
+          s.patient_name, s.patient_number, s.scan_type,
+          s.urgency, s.ai_result, s.status, s.ai_engine,
+          s.priority_color
+        ].filter(Boolean).join(' ').toLowerCase();
+        return hay.includes(q);
+      })
+    : _allScansCache;
+
+  if (countEl) {
+    countEl.textContent = `${list.length} of ${_allScansCache.length} scan${_allScansCache.length === 1 ? '' : 's'}`;
+  }
+
+  if (_allScansCache.length === 0) {
+    container.innerHTML = `
+      <div class="all-scans-empty">
+        <div class="empty-icon">📭</div>
+        <h3 style="margin:0 0 8px 0;color:var(--text);">No scans available</h3>
+        <p style="margin:0;font-size:0.9rem;">Scans uploaded by radiographers will appear here.</p>
+      </div>`;
+    return;
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="all-scans-empty">
+        <div class="empty-icon">🔍</div>
+        <h3 style="margin:0 0 8px 0;color:var(--text);">No scans match your search</h3>
+        <p style="margin:0;font-size:0.9rem;">Try a different keyword.</p>
+      </div>`;
+    return;
+  }
+
+  const rows = list.map(scan => {
+    const priority = getPriorityClass(scan);
+    const priorityLabel = getPriorityLabel(scan);
+    const imgSrc = (scan.image_url && scan.image_url !== 'demo-image-url' && scan.image_url !== '')
+      ? scan.image_url
+      : generatePlaceholder(scan.scan_type);
+    const safeId = String(scan.id).replace(/'/g, "\\'").replace(/"/g, '"');
+    const patient = escapeHtml(scan.patient_name || 'Unknown');
+    const scanType = escapeHtml(scan.scan_type || 'N/A');
+    const patientNumber = escapeHtml(scan.patient_number || '—');
+    const aiResult = escapeHtml(scan.ai_result || 'Pending analysis');
+    const time = scan.created_at ? formatTime(scan.created_at) : '—';
+    const confidence = (scan.confidence != null && scan.confidence !== '') ? scan.confidence + '%' : '—';
+    const status = (scan.status || 'pending').replace('-', ' ');
+    const statusClass = scan.status === 'completed' ? 'badge-complete'
+      : scan.status === 'urgent-flagged' ? 'badge-urgent' : 'badge-pending';
+    const statusText = status.charAt(0).toUpperCase() + status.slice(1);
+
+    return `
+      <tr data-scan-id="${safeId}">
+        <td>
+          <div class="patient-cell">
+            <img class="patient-thumb" src="${imgSrc}" alt="Scan" onerror="this.src='${generatePlaceholder(scan.scan_type)}'">
+            <div>
+              <div class="patient-name">${patient}</div>
+              <div class="patient-meta">#${patientNumber} · Age ${scan.patient_age || '—'}</div>
+            </div>
+          </div>
+        </td>
+        <td>${scanType}</td>
+        <td><span class="badge ${priority === 'critical' ? 'badge-critical' : priority === 'urgent' ? 'badge-urgent' : 'badge-normal'}">${priorityLabel}</span></td>
+        <td>${aiResult}</td>
+        <td>${confidence}</td>
+        <td><span class="badge ${statusClass}">${statusText}</span></td>
+        <td>${time}</td>
+        <td>
+          <div class="actions-cell">
+            <button class="btn-icon btn-view" title="View details" onclick="window.dashUtils.openScanFromAllScans('${safeId}')">👁️</button>
+            <button class="btn-icon btn-delete" title="Delete scan" onclick="window.dashUtils.confirmDeleteScan('${safeId}')">🗑️</button>
+          </div>
+        </td>
+      </tr>`;
+  }).join('');
+
+  container.innerHTML = `
+    <table class="all-scans-table">
+      <thead>
+        <tr>
+          <th>Patient</th>
+          <th>Scan Type</th>
+          <th>Priority</th>
+          <th>AI Finding</th>
+          <th>Confidence</th>
+          <th>Status</th>
+          <th>Uploaded</th>
+          <th style="text-align:right;">Actions</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function filterAllScansView() {
+  const input = document.getElementById('allScansSearch');
+  _allScansFilterText = input ? input.value : '';
+  renderAllScansTable();
+}
+
+// Open the dashboard detail view for a scan referenced from the all-scans table
+function openScanFromAllAllScansTable(scanId) {
+  const scan = _allScansCache.find(s => String(s.id) === String(scanId));
+  if (!scan) {
+    showToast('Scan not found.', 'error');
+    return;
+  }
+  // Switch to dashboard section, then open the detail view
+  showSection('dashboard');
+  // Sync allScans into the main allScans array so showDetail finds it
+  allScans = _allScansCache;
+  openScanDetail(scanId);
+}
+
+// Confirm-delete modal
+function confirmDeleteScan(scanId) {
+  const scan = _allScansCache.find(s => String(s.id) === String(scanId));
+  if (!scan) {
+    showToast('Scan not found.', 'error');
+    return;
+  }
+
+  // Remove any existing modal
+  const existing = document.getElementById('deleteConfirmModal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'deleteConfirmModal';
+  modal.className = 'modal-backdrop';
+  modal.innerHTML = `
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <h3>🗑️ Delete this scan?</h3>
+      <div class="modal-patient">
+        <strong>${escapeHtml(scan.patient_name || 'Unknown')}</strong>
+        <br>${escapeHtml(scan.scan_type || 'N/A')} · Uploaded ${scan.created_at ? formatTime(scan.created_at) : '—'}
+      </div>
+      <p>This action is permanent. The scan, its AI analysis, and review history will be removed for everyone.</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="cancelDeleteBtn" style="background:#fff;border:1.5px solid var(--border);color:var(--text);">Cancel</button>
+        <button class="btn btn-danger btn-sm" id="confirmDeleteBtn">🗑️ Yes, delete</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const closeModal = () => { if (modal.parentNode) modal.remove(); };
+  modal.addEventListener('click', closeModal);
+  const cancelBtn = document.getElementById('cancelDeleteBtn');
+  const confirmBtn = document.getElementById('confirmDeleteBtn');
+  if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', async () => {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Deleting…';
+      try {
+        await deleteScan(scanId);
+        closeModal();
+      } catch (err) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = '🗑️ Yes, delete';
+      }
+    });
+  }
+}
+
+// Delete scan from Supabase + localStorage
+async function deleteScan(scanId) {
+  // 1. Try Supabase
+  if (supabase) {
+    try {
+      const { error } = await supabase.from('scans').delete().eq('id', scanId);
+      if (error) {
+        console.log('[Delete] Supabase error:', error.message);
+      }
+    } catch (err) {
+      console.log('[Delete] Supabase delete skipped:', err.message);
+    }
+  }
+
+  // 2. Always remove from localStorage
+  try {
+    const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
+    const filtered = demoScans.filter(s => String(s.id) !== String(scanId));
+    localStorage.setItem('demoScans', JSON.stringify(filtered));
+  } catch (err) {
+    console.log('[Delete] localStorage update failed:', err.message);
+  }
+
+  // 3. Update in-memory caches
+  _allScansCache = _allScansCache.filter(s => String(s.id) !== String(scanId));
+  allScans = allScans.filter(s => String(s.id) !== String(scanId));
+
+  // 4. Re-render views
+  renderAllScansTable();
+  if (typeof renderScans === 'function') renderScans();
+  if (typeof loadStats === 'function') loadStats();
+  if (typeof loadCriticalAlerts === 'function') loadCriticalAlerts();
+
+  // 5. If the deleted scan was open in the detail view, close it
+  if (_currentScan && String(_currentScan.id) === String(scanId)) {
+    if (typeof closeDetail === 'function') closeDetail();
+    showSection('all-scans');
+  }
+
+  showToast('Scan deleted successfully.', 'success');
+}
+
 // Expose utilities globally
 window.dashUtils = {
   openScanDetail,
@@ -789,7 +1077,13 @@ window.dashUtils = {
   completeReview,
   sendSMS,
   runAIAnalysis,
-  handleChatSubmit
+  handleChatSubmit,
+  loadAllScansView,
+  filterAllScansView,
+  openScanFromAllScans: openScanFromAllAllScansTable,
+  confirmDeleteScan,
+  deleteScan,
+  showSection
 };
 window.filterScans = filterScans;
 window.refreshScans = refreshScans;

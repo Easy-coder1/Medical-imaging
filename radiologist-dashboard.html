@@ -135,6 +135,184 @@
       align-items: center;
       gap: 4px;
     }
+
+    /* All Scans table styles */
+    .all-scans-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .all-scans-search {
+      flex: 1;
+      min-width: 220px;
+      padding: 10px 14px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.9rem;
+      background: var(--card-bg);
+      color: var(--text);
+    }
+    .all-scans-search:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    .all-scans-count {
+      font-size: 0.85rem;
+      color: var(--text-light);
+      font-weight: 600;
+    }
+    .all-scans-table-wrapper {
+      overflow-x: auto;
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .all-scans-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      min-width: 760px;
+    }
+    .all-scans-table thead th {
+      background: rgba(0,119,182,0.06);
+      text-align: left;
+      padding: 14px 16px;
+      font-weight: 600;
+      color: var(--text);
+      border-bottom: 2px solid var(--border);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+    .all-scans-table tbody td {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .all-scans-table tbody tr {
+      transition: background 0.2s;
+    }
+    .all-scans-table tbody tr:hover {
+      background: rgba(0,119,182,0.03);
+    }
+    .all-scans-table .patient-cell {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .all-scans-table .patient-thumb {
+      width: 44px;
+      height: 44px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #E8EDF2;
+      flex-shrink: 0;
+    }
+    .all-scans-table .patient-name {
+      font-weight: 600;
+      color: var(--text);
+    }
+    .all-scans-table .patient-meta {
+      font-size: 0.75rem;
+      color: var(--text-light);
+    }
+    .all-scans-table .actions-cell {
+      display: flex;
+      gap: 6px;
+      justify-content: flex-end;
+    }
+    .btn-icon {
+      width: 34px;
+      height: 34px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+    }
+    .btn-icon.btn-view {
+      background: rgba(0,119,182,0.12);
+      color: #0077B6;
+    }
+    .btn-icon.btn-view:hover {
+      background: rgba(0,119,182,0.22);
+    }
+    .btn-icon.btn-delete {
+      background: rgba(230,57,70,0.12);
+      color: #E63946;
+    }
+    .btn-icon.btn-delete:hover {
+      background: rgba(230,57,70,0.22);
+    }
+    .btn-icon:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .all-scans-empty {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text-light);
+    }
+    .all-scans-empty .empty-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+      opacity: 0.4;
+    }
+    .section-hidden {
+      display: none !important;
+    }
+
+    /* Confirm modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15,23,42,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      animation: fadeIn 0.2s ease;
+    }
+    .modal-card {
+      background: var(--card-bg, #fff);
+      border-radius: 14px;
+      padding: 28px;
+      max-width: 440px;
+      width: calc(100% - 32px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+      animation: scaleIn 0.2s ease;
+    }
+    .modal-card h3 {
+      margin: 0 0 8px 0;
+      font-size: 1.15rem;
+      color: #E63946;
+    }
+    .modal-card p {
+      margin: 0 0 20px 0;
+      color: var(--text-light, #475569);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+    .modal-card .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .modal-card .modal-patient {
+      background: rgba(230,57,70,0.08);
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      font-size: 0.88rem;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes scaleIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   </style>
 </head>
 <body>
@@ -158,8 +336,11 @@
         ScanFlow AI
       </div>
       <nav>
-        <a href="radiologist-dashboard.html" class="active">
+        <a href="#dashboard" class="active" data-nav="dashboard" onclick="showSection('dashboard'); return false;">
           <span>📊</span> Dashboard
+        </a>
+        <a href="#all-scans" data-nav="all-scans" onclick="showSection('all-scans'); return false;">
+          <span>📋</span> All Scans
         </a>
       </nav>
       <div class="sidebar-footer">
@@ -178,6 +359,9 @@
 
     <!-- Main Content -->
     <main class="main-content">
+
+      <!-- ================== DASHBOARD SECTION ================== -->
+      <div id="dashboardSection">
 
       <!-- Page Header -->
       <div class="page-header">
@@ -255,7 +439,7 @@
       <!-- Scan Detail View (inline) -->
       <div id="detailView" style="display:none; margin-top: 24px;">
         <button onclick="window.dashUtils.closeDetail()" class="btn btn-secondary btn-sm" style="margin-bottom:20px;">
-          ← Back to All Scans
+          ← Back to Dashboard
         </button>
 
         <div class="review-layout">
@@ -372,6 +556,38 @@
           </div>
         </div>
 
+      </div>
+
+      </div> <!-- /dashboardSection -->
+
+      <!-- ================== ALL SCANS SECTION ================== -->
+      <div id="allScansSection" class="section-hidden">
+
+        <div class="page-header">
+          <div>
+            <h1>📋 All Scans</h1>
+            <p>Complete list of every scan — view details or delete when no longer needed</p>
+          </div>
+          <div class="actions">
+            <button id="refreshAllScansBtn" onclick="window.dashUtils.loadAllScansView()" class="btn btn-secondary btn-sm" style="background: #fff;border:1.5px solid var(--border);color:var(--text);">
+              🔄 Refresh
+            </button>
+          </div>
+        </div>
+
+        <div class="content-card">
+          <div class="all-scans-toolbar">
+            <input type="text" id="allScansSearch" class="all-scans-search" placeholder="🔍 Search by patient name, scan type, or status..." oninput="window.dashUtils.filterAllScansView()">
+            <span id="allScansCount" class="all-scans-count">0 scans</span>
+          </div>
+
+          <div id="allScansTableContainer" class="all-scans-table-wrapper">
+            <div style="text-align:center;padding:60px 24px;">
+              <div class="spinner"></div>
+              <p style="margin-top:12px;color:var(--text-light);font-size:0.85rem;">Loading all scans...</p>
+            </div>
+          </div>
+        </div>
       </div>
 
     </main>
