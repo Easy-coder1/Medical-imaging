@@ -36,6 +36,8 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
+// Note: Vercel free/pro tier enforces a strict 4.5MB payload limit.
+// Client-side resizing in upload.js ensures payloads stay within this limit.
 app.use(express.json({ limit: '15mb' }));
 
 // Serve static frontend files from the project root

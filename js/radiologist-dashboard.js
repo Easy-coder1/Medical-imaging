@@ -1,4 +1,4 @@
-﻿// ===== ScanFlow AI â€” Radiologist Dashboard Module =====
+// ===== ScanFlow AI â€” Radiologist Dashboard Module =====
 import { supabase } from './supabase-config.js';
 import { isAIConfigured, analyzeImageWithAI, sendChatMessage } from './ai-config.js';
 import { sendRealSMS, buildScanResultMessage, buildUrgentScanMessage, CONTACT_PHONE } from './sms-service.js';
@@ -711,7 +711,11 @@ async function runAIAnalysis() {
       try { ai = await analyzeImageWithAI(base64, mimeType, scan.scan_type, scan.patient_name); }
       catch (err) {
         console.error('AI API error:', err);
-        showToast('AI API error, falling back to simulation...', 'error');
+        if (err.message.toLowerCase().includes('timeout') || err.message.includes('504')) {
+          showToast('Gemini request timed out. Using simulated analysis...', 'error');
+        } else {
+          showToast('AI API error, falling back to simulation...', 'error');
+        }
         ai = simulateAidocAI(scan.scan_type);
       }
     } else {

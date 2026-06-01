@@ -1,4 +1,4 @@
-// ===== ScanFlow AI — Upload Module (Supabase + GPT-4o Vision) =====
+// ===== ScanFlow AI — Upload Module (Supabase + Gemini) =====
 import { supabase } from './supabase-config.js';
 import { isAIConfigured, analyzeImageWithAI, sendChatMessage } from './ai-config.js';
 
@@ -63,11 +63,11 @@ function simulateAidocAI(scanType) {
 
   return {
     aiResult: finding.result,
-    details: 'This is a simulated analysis. Configure your OpenAI API key in js/ai-config.js for real GPT-4o image analysis.',
+    details: 'This is a simulated analysis. Configure your Gemini API key in your .env file for real Gemini image analysis.',
     urgency: finding.urgency,
     confidence: confidence,
     anatomicalRegion: finding.category,
-    recommendations: 'This is a demo result. For real clinical analysis, please configure an OpenAI API key for GPT-4o Vision.',
+    recommendations: 'This is a demo result. For real clinical analysis, please configure a Gemini API key.',
     aiEngine: 'Simulated',
     category: finding.category
   };
@@ -94,14 +94,34 @@ function showToast(message, type = 'info') {
   }, 4000);
 }
 
-// ---------- File to Base64 ----------
-function fileToBase64(file) {
+// ---------- File to Base64 (with Resize for Vercel Limits) ----------
+function fileToBase64(file, maxSize = 1500) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      // Remove the data URL prefix to get just the base64 data
-      const base64 = reader.result.split(',')[1];
-      resolve({ base64, mimeType: file.type || 'image/jpeg' });
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          } else {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL(file.type || 'image/jpeg', 0.8);
+        const base64 = dataUrl.split(',')[1];
+        resolve({ base64, mimeType: file.type || 'image/jpeg' });
+      };
+      img.onerror = () => reject(new Error('Failed to load image for resizing'));
+      img.src = e.target.result;
     };
     reader.onerror = () => reject(new Error('Failed to read file'));
     reader.readAsDataURL(file);
@@ -181,26 +201,28 @@ if (uploadForm) {
 
       // Check if AI API is configured for real image analysis
       if (await isAIConfigured()) {
-        showToast('Sending image to GPT-4o for analysis...', 'info');
+        showToast('Sending image to Gemini for analysis...', 'info');
         try {
           // Convert file to base64 for the API
           const { base64, mimeType } = await fileToBase64(selectedFile);
 
-          showToast('GPT-4o is analyzing the image content...', 'info');
+          showToast('Gemini is analyzing the image content...', 'info');
           await new Promise(r => setTimeout(r, 500));
 
-          // Real image analysis via ChatGPT Free (GPT-4o)
+          // Real image analysis via Gemini
           ai = await analyzeImageWithAI(base64, mimeType, scanType, patientName);
-          showToast('GPT-4o Vision analysis complete!', 'success');
+          showToast('Gemini analysis complete!', 'success');
 
         } catch (apiErr) {
-          console.error('GPT-4o API error:', apiErr);
+          console.error('Gemini API error:', apiErr);
           if (apiErr.message.includes('AI_NOT_CONFIGURED') || apiErr.message.includes('invalid') || apiErr.message.includes('API key')) {
             showToast('Invalid API key. Using simulated analysis.', 'error');
           } else if (apiErr.message.includes('rate limit') || apiErr.message.includes('quota')) {
             showToast('API rate limit reached. Using simulated analysis.', 'error');
+          } else if (apiErr.message.toLowerCase().includes('timeout') || apiErr.message.includes('504')) {
+            showToast('Gemini request timed out. Using simulated analysis.', 'error');
           } else {
-            showToast('GPT-4o unavailable: ' + apiErr.message + '. Using simulated analysis.', 'error');
+            showToast('Gemini unavailable: ' + apiErr.message + '. Using simulated analysis.', 'error');
           }
           // Fall back to simulated analysis
           showToast('Running simulated analysis...', 'info');
@@ -365,7 +387,7 @@ async function handleChatSubmit() {
   } catch (err) {
     console.warn('Chat API failed, falling back to simulated response:', err);
     // Add simulated AI message
-    const simulatedReply = "This is a simulated response. To get real AI answers, please check your OpenAI API key and billing quota.";
+    const simulatedReply = "This is a simulated response. To get real AI answers, please configure your Gemini API key.";
     const aiMsg = document.createElement('div');
     aiMsg.innerHTML = `<strong>AI (Simulated):</strong> ${simulatedReply}`;
     aiMsg.style.background = 'rgba(0,0,0,0.03)';

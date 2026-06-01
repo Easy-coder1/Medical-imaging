@@ -55,6 +55,40 @@ if (dropzone) {
   fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
 }
 
+// ---------- File Resizing ----------
+function resizeFile(file, maxSize = 1500) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = Math.round((height * maxSize) / width);
+            width = maxSize;
+          } else {
+            width = Math.round((width * maxSize) / height);
+            height = maxSize;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          resolve(blob);
+        }, file.type || 'image/jpeg', 0.8);
+      };
+      img.onerror = () => reject(new Error('Failed to load image for resizing'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
 function handleFile(file) {
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
   if (!validTypes.includes(file.type)) {
@@ -103,13 +137,22 @@ if (uploadForm) {
     try {
       let imageUrl = '';
 
-      // Upload image to Supabase Storage
-      if (selectedFile && supabase) {
+      let uploadFile = selectedFile;
+      if (selectedFile) {
         try {
-          const fileName = `scans/${Date.now()}_${selectedFile.name}`;
+          uploadFile = await resizeFile(selectedFile);
+        } catch (e) {
+          console.warn('Failed to resize, using original', e);
+        }
+      }
+
+      // Upload image to Supabase Storage
+      if (uploadFile && supabase) {
+        try {
+          const fileName = `scans/${Date.now()}_${selectedFile.name || 'scan.jpg'}`;
           const { error: uploadError } = await supabase.storage
             .from('scan-images')
-            .upload(fileName, selectedFile);
+            .upload(fileName, uploadFile);
           if (uploadError) throw uploadError;
           const { data: urlData } = supabase.storage.from('scan-images').getPublicUrl(fileName);
           imageUrl = urlData?.publicUrl || '';
