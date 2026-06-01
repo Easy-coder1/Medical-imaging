@@ -155,6 +155,9 @@
             </div>
 
             <div class="review-actions">
+              <button id="runAiBtn" onclick="window.reviewUtils.runAIAnalysis()" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #4A00E0, #8E2DE2);">
+                🤖 Analyze with AI
+              </button>
               <button onclick="window.reviewUtils.sendSMS()" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #0077B6, #00B4D8);">
                 📱 Send SMS to Patient
               </button>
@@ -170,6 +173,26 @@
             </div>
           </div>
         </div>
+
+        <!-- AI Chat Card -->
+        <div class="content-card" id="aiChatCard" style="margin-top: 24px;">
+          <h2 style="margin-bottom: 12px;">💬 ScanFlow AI Assistant</h2>
+          <p style="color: var(--text-light); font-size: 0.85rem; margin-top: -6px; margin-bottom: 16px;">
+            Ask the AI questions about anatomy, medical findings, pathologies, or the uploaded scan.
+          </p>
+          <div class="ai-chat-section" id="aiChatSection" style="border-top: 1px solid rgba(0,0,0,0.06); padding-top: 15px;">
+            <div id="aiChatHistory" style="max-height: 250px; overflow-y: auto; margin-bottom: 12px; font-size: 0.9rem; color: var(--text-color); display: flex; flex-direction: column; gap: 8px;">
+              <div style="background: rgba(0,0,0,0.03); padding: 8px; border-radius: 6px;">
+                <strong>AI:</strong> Hello! I am your ScanFlow AI assistant. How can I help you today? You can ask me questions about medical imaging, scan types, or any abnormalities.
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="aiChatInput" placeholder="Ask a question..." style="flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: inherit; background: #FAFBFC; color: var(--text);">
+              <button id="aiChatBtn" onclick="window.reviewUtils.handleChatSubmit()" class="btn btn-primary btn-sm" style="padding: 8px 16px;">Ask</button>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </main>

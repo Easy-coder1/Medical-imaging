@@ -1,5 +1,6 @@
 // ===== ScanFlow AI — Review Module (Supabase) =====
 import { supabase } from './supabase-config.js';
+import { isAIConfigured, analyzeImageWithAI, sendChatMessage } from './ai-config.js';
 
 // ---------- Toast ----------
 function showToast(message, type = 'info') {
@@ -239,6 +240,22 @@ function showDetail(scan) {
 
   // Store current scan for actions
   window._currentReviewScan = scan;
+  
+  // Set up chat context
+  window._currentAIContext = {
+    patientName: scan.patient_name,
+    scanType: scan.scan_type,
+    aiResult: scan.ai_result,
+    details: scan.ai_details
+  };
+
+  const chatInput = document.getElementById('aiChatInput');
+  if (chatInput && !chatInput.hasAttribute('data-bound')) {
+    chatInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') handleChatSubmit();
+    });
+    chatInput.setAttribute('data-bound', 'true');
+  }
 
   listView.style.display = 'none';
   detailView.style.display = 'block';
@@ -455,6 +472,193 @@ async function updateSmsStatus(scanId, sent) {
   }
 }
 
+// ---------- AI Analysis On-Demand ----------
+async function getBase64FromUrl(url) {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64data = reader.result.split(',')[1];
+        resolve({ base64: base64data, mimeType: blob.type || 'image/jpeg' });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    throw new Error('Failed to fetch image for analysis: ' + err.message);
+  }
+}
+
+function simulateAidocAI(scanType) {
+  const URGENCY_LEVELS = ['Critical', 'Urgent', 'Moderate', 'Normal'];
+  const urg = URGENCY_LEVELS[Math.floor(Math.random() * URGENCY_LEVELS.length)];
+  const conf = Math.floor(Math.random() * 40) + 50;
+  return {
+    aiResult: 'Simulated Finding: Abnormalities detected.',
+    details: 'This is a simulated analysis. Configure your OpenAI API key in js/ai-config.js for real GPT-4o image analysis.',
+    urgency: urg,
+    confidence: conf,
+    anatomicalRegion: 'General',
+    recommendations: 'This is a demo result. For real clinical analysis, please configure an API key.',
+    aiEngine: 'Simulated',
+    category: scanType
+  };
+}
+
+async function runAIAnalysis() {
+  const scan = window._currentReviewScan;
+  if (!scan) return;
+  
+  const btn = document.getElementById('runAiBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 8px 0 0;display:inline-block;vertical-align:middle;"></span> Analyzing...';
+  }
+
+  try {
+    let ai;
+    let base64 = null;
+    let mimeType = 'image/jpeg';
+    
+    if (scan.image_url && scan.image_url !== 'demo-image-url') {
+      try {
+        const imgData = await getBase64FromUrl(scan.image_url);
+        base64 = imgData.base64;
+        mimeType = imgData.mimeType;
+      } catch(e) {
+        console.warn("Could not fetch image as base64, using fallback.", e);
+      }
+    }
+
+    if (await isAIConfigured() && base64) {
+      showToast('Sending image to AI for analysis...', 'info');
+      try {
+        ai = await analyzeImageWithAI(base64, mimeType, scan.scan_type, scan.patient_name);
+      } catch (err) {
+        console.error('AI API error:', err);
+        showToast('AI API error, falling back to simulation...', 'error');
+        ai = simulateAidocAI(scan.scan_type);
+      }
+    } else {
+      showToast('Running simulated AI analysis...', 'info');
+      await new Promise(r => setTimeout(r, 1500));
+      ai = simulateAidocAI(scan.scan_type);
+    }
+    
+    window._currentAIContext = ai;
+
+    scan.ai_result = ai.aiResult;
+    scan.confidence = ai.confidence;
+    scan.urgency = ai.urgency;
+    scan.ai_engine = ai.aiEngine || 'Unknown';
+    scan.ai_details = ai.details || '';
+    scan.ai_recommendations = ai.recommendations || '';
+
+    if (supabase) {
+      try {
+        await supabase.from('scans').update({
+          ai_result: scan.ai_result,
+          confidence: scan.confidence,
+          urgency: scan.urgency,
+          ai_engine: scan.ai_engine,
+          ai_details: scan.ai_details,
+          ai_recommendations: scan.ai_recommendations
+        }).eq('id', scan.id);
+      } catch (e) {
+        console.warn('Supabase update failed:', e);
+      }
+    }
+    
+    const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
+    const idx = demoScans.findIndex(s => String(s.id) === String(scan.id));
+    if (idx !== -1) {
+      demoScans[idx] = { ...demoScans[idx], ...scan };
+      localStorage.setItem('demoScans', JSON.stringify(demoScans));
+    }
+    
+    showToast('AI Analysis complete!', 'success');
+    showDetail(scan);
+    
+    const aiChatHistory = document.getElementById('aiChatHistory');
+    if (aiChatHistory) {
+      const sysMsg = document.createElement('div');
+      sysMsg.innerHTML = `<strong>System:</strong> Scan analyzed successfully. AI context loaded.`;
+      sysMsg.style.background = 'rgba(46,196,182,0.1)';
+      sysMsg.style.color = '#0D9488';
+      sysMsg.style.padding = '8px';
+      sysMsg.style.borderRadius = '6px';
+      sysMsg.style.fontSize = '0.85rem';
+      aiChatHistory.appendChild(sysMsg);
+      aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
+    }
+
+  } catch (err) {
+    showToast('Analysis failed: ' + err.message, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '🤖 Analyze with AI';
+    }
+  }
+}
+
+// ---------- Chat Handlers ----------
+async function handleChatSubmit() {
+  const aiChatInput = document.getElementById('aiChatInput');
+  const aiChatBtn = document.getElementById('aiChatBtn');
+  const aiChatHistory = document.getElementById('aiChatHistory');
+  
+  if (!aiChatInput || !aiChatBtn || !aiChatHistory) return;
+  
+  const query = aiChatInput.value.trim();
+  if (!query) return;
+  
+  const userMsg = document.createElement('div');
+  userMsg.innerHTML = `<strong>You:</strong> ${query}`;
+  userMsg.style.background = 'rgba(0,119,182,0.1)';
+  userMsg.style.padding = '8px';
+  userMsg.style.borderRadius = '6px';
+  aiChatHistory.appendChild(userMsg);
+  
+  aiChatInput.value = '';
+  aiChatBtn.disabled = true;
+  aiChatBtn.textContent = '...';
+  aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
+
+  try {
+    const scan = window._currentReviewScan || {};
+    const context = window._currentAIContext || {};
+    if (scan.patient_name) context.patientName = scan.patient_name;
+    if (scan.scan_type) context.scanType = scan.scan_type;
+    if (scan.ai_result) context.aiResult = scan.ai_result;
+    if (scan.ai_details) context.details = scan.ai_details;
+
+    const reply = await sendChatMessage(query, context);
+    
+    const aiMsg = document.createElement('div');
+    aiMsg.innerHTML = `<strong>AI:</strong> ${reply}`;
+    aiMsg.style.background = 'rgba(0,0,0,0.03)';
+    aiMsg.style.padding = '8px';
+    aiMsg.style.borderRadius = '6px';
+    aiChatHistory.appendChild(aiMsg);
+  } catch (err) {
+    console.warn('Chat API failed:', err);
+    const aiMsg = document.createElement('div');
+    aiMsg.innerHTML = `<strong>AI (Simulated):</strong> This is a simulated response. Check API configuration.`;
+    aiMsg.style.background = 'rgba(0,0,0,0.03)';
+    aiMsg.style.padding = '8px';
+    aiMsg.style.borderRadius = '6px';
+    aiMsg.style.color = '#F4A261';
+    aiChatHistory.appendChild(aiMsg);
+  } finally {
+    aiChatBtn.disabled = false;
+    aiChatBtn.textContent = 'Ask';
+    aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
+  }
+}
+
 // ---------- Helpers ----------
 function escapeHtml(str) {
   const div = document.createElement('div');
@@ -521,4 +725,4 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (overlay) overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
 });
 
-window.reviewUtils = { openReview, closeReview, approveScan, flagUrgent, completeReview, sendSMS };
+window.reviewUtils = { openReview, closeReview, approveScan, flagUrgent, completeReview, sendSMS, runAIAnalysis, handleChatSubmit };
