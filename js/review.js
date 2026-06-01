@@ -37,9 +37,7 @@ function getStatusBadge(status) {
 function getAllScans() {
   const allScans = [];
 
-  // 1. Built-in demo data (always available)
-  const demoData = getDemoScans();
-  demoData.forEach(s => allScans.push(s));
+  // 1. Built-in demo data removed to only show uploaded scans from the radiographer.
 
   // 2. localStorage uploads (from upload page)
   try {
