@@ -185,12 +185,15 @@ async function loadScans(showLoading = true) {
     console.log('[Radiologist Dashboard] Supabase not configured, using demo mode');
   }
 
-  // Fallback to localStorage if no scans were loaded from Supabase
-  if (allScans.length === 0) {
-    const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
-    if (demoScans.length > 0) {
-      console.log(`[Radiologist Dashboard] Using ${demoScans.length} demo scans from localStorage`);
-      allScans = demoScans;
+  // Always merge localStorage demo scans with Supabase scans
+  // This ensures scans uploaded in demo/fallback mode are visible
+  const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
+  if (demoScans.length > 0) {
+    const existingIds = new Set(allScans.map(s => String(s.id)));
+    const newLocalScans = demoScans.filter(s => !existingIds.has(String(s.id)));
+    if (newLocalScans.length > 0) {
+      console.log(`[Radiologist Dashboard] Merging ${newLocalScans.length} local scans with ${allScans.length} database scans`);
+      allScans = [...allScans, ...newLocalScans];
     }
   }
 

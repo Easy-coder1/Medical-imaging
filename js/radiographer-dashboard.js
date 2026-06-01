@@ -98,13 +98,23 @@ async function loadUploads() {
     }
   }
 
-  if (scans.length === 0) {
-    // Try localStorage for demo
-    const localScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
-    if (localScans.length > 0) {
-      scans = localScans.slice(0, 20);
+  // Always merge localStorage demo scans with Supabase scans
+  const localScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
+  if (localScans.length > 0) {
+    const existingIds = new Set(scans.map(s => String(s.id)));
+    const newLocalScans = localScans.filter(s => !existingIds.has(String(s.id)));
+    if (newLocalScans.length > 0) {
+      scans = [...scans, ...newLocalScans];
     }
   }
+
+  // Sort by created_at descending and limit to 20
+  scans.sort((a, b) => {
+    const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bTime - aTime;
+  });
+  scans = scans.slice(0, 20);
 
   if (scans.length === 0) {
     tbody.innerHTML = `

@@ -72,9 +72,14 @@ async function loadScanList() {
     }
   }
 
-  // Fallback to local data
-  if (scans.length === 0) {
-    scans = getAllScans();
+  // Always merge local data with Supabase data to ensure demo/fallback scans are visible
+  const localScans = getAllScans();
+  if (localScans.length > 0) {
+    const existingIds = new Set(scans.map(s => String(s.id)));
+    const newLocalScans = localScans.filter(s => !existingIds.has(String(s.id)));
+    if (newLocalScans.length > 0) {
+      scans = [...scans, ...newLocalScans];
+    }
   }
 
   if (scans.length === 0) {
@@ -500,9 +505,16 @@ function getDemoScans() {
 }
 
 // ---------- Init ----------
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   if (window.authUtils) window.authUtils.requireAuth();
-  loadScanList();
+  await loadScanList();
+
+  // Check for scan ID in URL query parameter (deep-linking from radiologist dashboard)
+  const urlParams = new URLSearchParams(window.location.search);
+  const scanId = urlParams.get('id');
+  if (scanId) {
+    openReview(scanId);
+  }
 
   const menuBtn = document.getElementById('mobileMenuBtn');
   const sidebar = document.getElementById('sidebar');
