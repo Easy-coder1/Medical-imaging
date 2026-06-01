@@ -1,5 +1,6 @@
 // ===== ScanFlow AI — Radiographer Upload Module =====
 import { supabase } from './supabase-config.js';
+import './auth.js';
 import { broadcastScanChange, upsertLocalScan, saveLocalScans, getLocalScans } from './realtime-sync.js';
 import { sendRealSMS, CONTACT_PHONE } from './sms-service.js';
 

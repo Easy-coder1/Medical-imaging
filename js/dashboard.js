@@ -1,5 +1,6 @@
 // ===== ScanFlow AI — Dashboard Module (Supabase) =====
 import { supabase } from './supabase-config.js';
+import './auth.js';
 
 // ---------- AI Simulation Data ----------
 const URGENCY_LEVELS = [

@@ -1,5 +1,6 @@
 // ===== ScanFlow AI â€” Radiologist Dashboard Module =====
 import { supabase } from './supabase-config.js';
+import './auth.js';
 import { isAIConfigured, analyzeImageWithAI, sendChatMessage } from './ai-config.js';
 import { sendRealSMS, buildScanResultMessage, buildUrgentScanMessage, CONTACT_PHONE } from './sms-service.js';
 import {
@@ -559,9 +560,8 @@ async function completeReview() {
 function sendSMS() {
   const scan = _currentScan;
   if (!scan) { showToast('No scan selected.', 'error'); return; }
-  const patientPhone = scan.patient_phone;
   const patientName = scan.patient_name || 'Patient';
-  if (!patientPhone) { showToast('No phone number available for this patient.', 'error'); return; }
+  const defaultPhone = scan.patient_phone || '';
 
   // Remove existing modal
   const existing = document.getElementById('smsComposerModal');
@@ -574,12 +574,18 @@ function sendSMS() {
     <div class="modal-card" onclick="event.stopPropagation()" style="max-width:520px;">
       <h3 style="color:var(--primary);margin:0 0 4px 0;">&#128241; Send SMS to Patient</h3>
       <p style="color:var(--text-light);font-size:0.85rem;margin:0 0 16px 0;">
-        To: <strong>${escapeHtml(patientName)}</strong> &mdash; ${escapeHtml(patientPhone)}
+        To: <strong>${escapeHtml(patientName)}</strong>
         ${scan.sms_sent ? '<br><span style="color:#F4A261;">&#9888; Sent previously. Re-sending will notify the patient again.</span>' : ''}
       </p>
       <p style="font-size:0.78rem;color:#E63946;margin:0 0 12px 0;">
         &#9888; SMS is sent via Arkesel. Requires ARKESEL_API_KEY configured on server.
       </p>
+      
+      <div class="form-group" style="margin-bottom:12px;">
+        <label for="smsPhoneInput" style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--text);">Patient Phone Number</label>
+        <input type="text" id="smsPhoneInput" value="${escapeHtml(defaultPhone)}" placeholder="e.g. 0541234567" style="width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.9rem;color:var(--text);" />
+      </div>
+
       <div class="form-group" style="margin-bottom:16px;">
         <label for="smsMessage" style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--text);">Your Message</label>
         <textarea id="smsMessage" rows="5" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:0.9rem;color:var(--text);background:#FAFBFC;resize:vertical;"
@@ -603,6 +609,9 @@ Thank you.
 
   document.getElementById('smsSendBtn').onclick = async () => {
     const message = document.getElementById('smsMessage').value.trim();
+    const phoneInput = document.getElementById('smsPhoneInput').value.trim();
+    
+    if (!phoneInput) { showToast('Please enter a phone number.', 'error'); return; }
     if (!message) { showToast('Please type a message.', 'error'); return; }
 
     const sendBtn = document.getElementById('smsSendBtn');
@@ -612,7 +621,15 @@ Thank you.
     try {
       // Send REAL SMS — no demo fallback. If the server has no ARKESEL_API_KEY,
       // the server will return a clear error message.
-      await sendRealSMS(patientPhone, message);
+      await sendRealSMS(phoneInput, message);
+      
+      // Update scan phone number if it changed
+      if (phoneInput !== scan.patient_phone) {
+          if (supabase) {
+              await supabase.from('scans').update({ patient_phone: phoneInput }).eq('id', scan.id);
+          }
+          scan.patient_phone = phoneInput;
+      }
       
       await updateSmsStatus(scan.id, true);
       showToast('SMS sent successfully!', 'success');

@@ -1,5 +1,6 @@
 // ===== ScanFlow AI — Radiographer Dashboard Module =====
 import { supabase } from './supabase-config.js';
+import './auth.js';
 import { setupRealtimeSync, getLocalScans, upsertLocalScan, removeLocalScan, broadcastScanChange } from './realtime-sync.js';
 
 // ---------- State ----------
