@@ -1,6 +1,14 @@
-// ===== ScanFlow AI — Radiologist Dashboard Module =====
+﻿// ===== ScanFlow AI â€” Radiologist Dashboard Module =====
 import { supabase } from './supabase-config.js';
 import { isAIConfigured, analyzeImageWithAI, sendChatMessage } from './ai-config.js';
+import {
+  setupRealtimeSync,
+  broadcastScanChange,
+  getLocalScans,
+  upsertLocalScan,
+  removeLocalScan,
+  getRealtimeStatus
+} from './realtime-sync.js';
 
 // ---------- State ----------
 let allScans = [];
@@ -9,47 +17,45 @@ let isLoading = false;
 let lastError = null;
 let _currentScan = null;
 let _currentAIContext = null;
+let _hasLoadedOnce = false;
 
 // ---------- Section Switching ----------
 function showSection(name) {
   const dashboard = document.getElementById('dashboardSection');
-  const allScans = document.getElementById('allScansSection');
+  const allScansSec = document.getElementById('allScansSection');
   const detailView = document.getElementById('detailView');
   const filterTabs = document.querySelector('.filter-tabs');
   const criticalSection = document.querySelector('.content-card[style*="border-left: 5px solid #E63946"]');
 
-  // Update sidebar active state
   document.querySelectorAll('.sidebar nav a[data-nav]').forEach(a => {
     a.classList.toggle('active', a.dataset.nav === name);
   });
 
   if (name === 'all-scans') {
     if (dashboard) dashboard.classList.add('section-hidden');
-    if (allScans) allScans.classList.remove('section-hidden');
-    // Ensure detail view is hidden
+    if (allScansSec) allScansSec.classList.remove('section-hidden');
     if (detailView) detailView.style.display = 'none';
     if (filterTabs) filterTabs.style.display = '';
     if (criticalSection) criticalSection.style.display = '';
-    // Close mobile sidebar if open
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     if (sidebar) sidebar.classList.remove('open');
     if (overlay) overlay.classList.remove('show');
-    // Load the all scans view
     loadAllScansView();
   } else {
-    // Default to dashboard
     if (dashboard) dashboard.classList.remove('section-hidden');
-    if (allScans) allScans.classList.add('section-hidden');
-    // Close mobile sidebar if open
+    if (allScansSec) allScansSec.classList.add('section-hidden');
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     if (sidebar) sidebar.classList.remove('open');
     if (overlay) overlay.classList.remove('show');
+    // CRITICAL FIX: re-render the dashboard with the latest in-memory data
+    // so scans don't "vanish" when returning from All Scans.
+    renderScans();
+    renderCriticalAlertsFromState();
+    renderStatsFromState();
   }
 }
-
-// Expose for inline onclick
 window.showSection = showSection;
 
 // ---------- Toast ----------
@@ -62,8 +68,8 @@ function showToast(message, type = 'info') {
   }
   const toast = document.createElement('div');
   toast.className = `toast ${type}`;
-  const icons = { success: '✓', error: '✗', info: 'ℹ' };
-  toast.innerHTML = `<span>${icons[type] || 'ℹ'}</span> ${message}`;
+  const icons = { success: 'âœ“', error: 'âœ—', info: 'â„¹' };
+  toast.innerHTML = `<span>${icons[type] || 'â„¹'}</span> ${message}`;
   container.appendChild(toast);
   setTimeout(() => {
     toast.style.opacity = '0';
@@ -75,121 +81,112 @@ function showToast(message, type = 'info') {
 
 // ---------- Priority Helpers ----------
 function getPriorityClass(scan) {
+  if (!scan) return 'normal';
   if (scan.urgency === 'Critical' || scan.priority_color === 'red') return 'critical';
   if (scan.urgency === 'Urgent' || scan.priority_color === 'orange') return 'urgent';
   return 'normal';
 }
-
 function getPriorityLabel(scan) {
+  if (!scan) return 'Normal';
   if (scan.urgency === 'Critical' || scan.priority_color === 'red') return 'Critical';
   if (scan.urgency === 'Urgent' || scan.priority_color === 'orange') return 'Urgent';
   return 'Normal';
 }
-
 function getStatusBadge(status) {
   if (status === 'completed') return '<span class="badge badge-complete">Reviewed</span>';
   if (status === 'urgent-flagged') return '<span class="badge badge-urgent">Urgent</span>';
   return '<span class="badge badge-pending">Pending</span>';
 }
-
 function getUrgencyBadge(urgency) {
-  const map = { 
-    'Critical': 'badge-critical', 
-    'Urgent': 'badge-urgent', 
-    'Moderate': 'badge-moderate', 
-    'Normal': 'badge-normal' 
-  };
+  const map = { 'Critical': 'badge-critical', 'Urgent': 'badge-urgent', 'Moderate': 'badge-moderate', 'Normal': 'badge-normal' };
   return `<span class="badge ${map[urgency] || 'badge-normal'}">${urgency || 'N/A'}</span>`;
-}
-
-// ---------- Load Stats ----------
-async function loadStats() {
-  let total = 0, critical = 0, urgent = 0, reviewed = 0;
-
-  // Collect all scans from Supabase + localStorage
-  const scans = await collectAllScans();
-  total = scans.length;
-  scans.forEach(s => {
-    const priority = getPriorityClass(s);
-    if (priority === 'critical') critical++;
-    if (priority === 'urgent') urgent++;
-    if (s.status === 'completed') reviewed++;
-  });
-
-  animateCounter('statTotal', total);
-  animateCounter('statCritical', critical);
-  animateCounter('statUrgent', urgent);
-  animateCounter('statReviewed', reviewed);
-}
-
-function animateCounter(id, target) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  let current = 0;
-  const step = Math.max(1, Math.ceil(target / 20));
-  const interval = setInterval(() => {
-    current += step;
-    if (current >= target) { current = target; clearInterval(interval); }
-    el.textContent = current;
-  }, 30);
 }
 
 // ---------- Collect all scans from all sources ----------
 async function collectAllScans() {
   let scans = [];
 
-  // 1. Try Supabase first
+  // 1. Supabase
   if (supabase) {
     try {
       const { data, error } = await supabase
         .from('scans')
         .select('*')
         .order('created_at', { ascending: false });
-      if (!error && data) {
+      if (!error && Array.isArray(data)) {
         scans = data;
+      } else if (error) {
+        console.log('[Dashboard] Supabase query error:', error.message);
       }
     } catch (err) {
       console.log('[Dashboard] Supabase query failed:', err.message);
     }
   }
 
-  // 2. Always merge localStorage scans (ensures persistence)
-  const localScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
+  // 2. localStorage merge (offline + demo fallback)
+  const localScans = getLocalScans();
   if (localScans.length > 0) {
     const existingIds = new Set(scans.map(s => String(s.id)));
-    const newLocalScans = localScans.filter(s => !existingIds.has(String(s.id)));
-    if (newLocalScans.length > 0) {
-      scans = [...scans, ...newLocalScans];
-    }
+    const newLocal = localScans.filter(s => s && s.id != null && !existingIds.has(String(s.id)));
+    if (newLocal.length > 0) scans = [...scans, ...newLocal];
   }
+
+  // 3. Deduplicate
+  const seen = new Set();
+  scans = scans.filter(s => {
+    if (!s || s.id == null) return false;
+    const k = String(s.id);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  // 4. Sort newest first
+  scans.sort((a, b) => {
+    const at = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bt - at;
+  });
 
   return scans;
 }
 
-// ---------- Load Critical Alerts ----------
-async function loadCriticalAlerts() {
+// ---------- Render from in-memory state (instant, no network) ----------
+function renderStatsFromState() {
+  let total = 0, critical = 0, urgent = 0, reviewed = 0;
+  total = allScans.length;
+  allScans.forEach(s => {
+    const p = getPriorityClass(s);
+    if (p === 'critical') critical++;
+    if (p === 'urgent') urgent++;
+    if (s.status === 'completed') reviewed++;
+  });
+  animateCounter('statTotal', total);
+  animateCounter('statCritical', critical);
+  animateCounter('statUrgent', urgent);
+  animateCounter('statReviewed', reviewed);
+}
+
+function renderCriticalAlertsFromState() {
   const container = document.getElementById('criticalAlertsList');
   if (!container) return;
-
-  const scans = await collectAllScans();
-  const criticalScans = scans.filter(s => getPriorityClass(s) === 'critical' && s.status !== 'completed');
-
+  const criticalScans = allScans.filter(s => getPriorityClass(s) === 'critical' && s.status !== 'completed');
   if (criticalScans.length === 0) {
     container.innerHTML = `
       <div style="text-align:center;padding:16px;color:var(--success);">
-        <div style="font-size:1.5rem;margin-bottom:8px;">✅</div>
+        <div style="font-size:1.5rem;margin-bottom:8px;">âœ…</div>
         <p style="font-size:0.9rem;">No critical cases pending!</p>
       </div>`;
     return;
   }
-
   container.innerHTML = criticalScans.slice(0, 3).map(scan => {
     const time = scan.created_at ? formatTime(scan.created_at) : 'Just now';
+    const idStr = String(scan.id).replace(/'/g, "\\'");
     return `
-      <div class="alert-item" style="cursor:pointer;" onclick="window.dashUtils.openScanDetail('${scan.id}')">
+      <div class="alert-item" style="cursor:pointer;" onclick="window.dashUtils.openScanDetail('${idStr}')">
         <div class="alert-dot"></div>
         <span class="alert-text">
-          <strong>${escapeHtml(scan.patient_name || 'Unknown')}</strong> — 
+          <strong>${escapeHtml(scan.patient_name || 'Unknown')}</strong> â€”
           ${escapeHtml(scan.ai_result || 'Analysis pending')}
           <br>
           <span style="font-size:0.78rem;color:var(--text-light);">
@@ -201,15 +198,45 @@ async function loadCriticalAlerts() {
   }).join('');
 }
 
+// ---------- Load Stats ----------
+async function loadStats() {
+  if (allScans.length === 0) {
+    try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
+  }
+  renderStatsFromState();
+}
+
+function animateCounter(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let current = parseInt(el.textContent || '0', 10) || 0;
+  if (current === target) return;
+  const step = Math.max(1, Math.ceil(Math.abs(target - current) / 20));
+  const interval = setInterval(() => {
+    current += (target > current ? step : -step);
+    if ((step > 0 && current >= target) || (step < 0 && current <= target)) {
+      current = target; clearInterval(interval);
+    }
+    el.textContent = current;
+  }, 30);
+}
+
+// ---------- Load Critical Alerts ----------
+async function loadCriticalAlerts() {
+  if (allScans.length === 0) {
+    try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
+  }
+  renderCriticalAlertsFromState();
+}
+
 // ---------- Load Scan Grid ----------
 async function loadScans(showLoading = true) {
   const grid = document.getElementById('scanGrid');
   if (!grid) return;
-
   isLoading = true;
   lastError = null;
 
-  if (showLoading) {
+  if (showLoading && allScans.length === 0) {
     grid.innerHTML = `
       <div style="text-align:center;padding:60px 24px;grid-column:1/-1;">
         <div class="spinner"></div>
@@ -217,51 +244,55 @@ async function loadScans(showLoading = true) {
       </div>`;
   }
 
-  allScans = await collectAllScans();
-
+  try {
+    allScans = await collectAllScans();
+    _hasLoadedOnce = true;
+  } catch (err) {
+    lastError = err;
+    console.error('[Dashboard] loadScans failed:', err);
+  }
   isLoading = false;
   renderScans();
+  renderStatsFromState();
+  renderCriticalAlertsFromState();
 }
 
-// ---------- Manual Refresh ----------
-function refreshScans() {
-  allScans = [];
-  loadScans(true);
-  loadStats();
-  loadCriticalAlerts();
-}
+async function refreshScans() { await loadScans(true); }
 
+// ---------- Render scans grid ----------
 function renderScans() {
   const grid = document.getElementById('scanGrid');
   if (!grid) return;
 
-  // Filter scans
   let filtered = allScans;
   if (currentFilter !== 'all') {
     filtered = allScans.filter(scan => getPriorityClass(scan) === currentFilter);
   }
-
-  // Sort by priority (critical first, then urgent, then normal), then by time
   filtered.sort((a, b) => {
-    const priorityOrder = { 'critical': 0, 'urgent': 1, 'normal': 2 };
-    const aPriority = priorityOrder[getPriorityClass(a)];
-    const bPriority = priorityOrder[getPriorityClass(b)];
-    if (aPriority !== bPriority) return aPriority - bPriority;
-    
-    const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-    return bTime - aTime;
+    const po = { 'critical': 0, 'urgent': 1, 'normal': 2 };
+    const ap = po[getPriorityClass(a)];
+    const bp = po[getPriorityClass(b)];
+    if (ap !== bp) return ap - bp;
+    const at = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bt - at;
   });
 
   if (filtered.length === 0) {
-    const message = allScans.length === 0 
-      ? 'No scans available yet. Scans uploaded by radiographers will appear here.'
+    const message = allScans.length === 0
+      ? 'No scans available yet. Scans uploaded by radiographers will appear here automatically.'
       : 'No scans found for this filter.';
+    const status = getRealtimeStatus();
+    const statusHint = (status === 'SUBSCRIBED')
+      ? '<p style="color:var(--success);font-size:0.8rem;margin-top:8px;">ðŸŸ¢ Live updates active â€” new uploads will appear instantly.</p>'
+      : (status === 'demo'
+        ? '<p style="color:var(--text-light);font-size:0.8rem;margin-top:8px;">â„¹ï¸ Running in demo mode â€” open this page in another tab and upload a scan to see live updates.</p>'
+        : '<p style="color:var(--text-light);font-size:0.8rem;margin-top:8px;">â³ Connecting to live updatesâ€¦</p>');
     grid.innerHTML = `
       <div style="text-align:center;padding:60px 24px;grid-column:1/-1;">
-        <div style="font-size:3rem;margin-bottom:12px;opacity:0.3;">📭</div>
+        <div style="font-size:3rem;margin-bottom:12px;opacity:0.3;">ðŸ“­</div>
         <p style="color:var(--text-light);font-size:0.9rem;">${message}</p>
-        ${allScans.length === 0 ? '<p style="color:var(--text-light);font-size:0.8rem;margin-top:8px;">Make sure you\'re logged in and scans have been uploaded.</p>' : ''}
+        ${allScans.length === 0 ? statusHint : ''}
       </div>`;
     return;
   }
@@ -273,23 +304,23 @@ function renderScans() {
     const imgSrc = scan.image_url && scan.image_url !== 'demo-image-url' && scan.image_url !== ''
       ? scan.image_url
       : generatePlaceholder(scan.scan_type);
-    
+    const idStr = String(scan.id).replace(/'/g, "\\'");
     return `
-      <div class="priority-scan-card ${priority}" onclick="window.dashUtils.openScanDetail('${scan.id}')">
+      <div class="priority-scan-card ${priority}" onclick="window.dashUtils.openScanDetail('${idStr}')">
         <div class="priority-indicator ${priority}"></div>
         <img class="scan-preview" src="${imgSrc}" alt="Scan preview"
              onerror="this.src='${generatePlaceholder(scan.scan_type)}'">
         <div class="card-header">
           <div>
             <div class="patient-name">${escapeHtml(scan.patient_name || 'Unknown')}</div>
-            <div class="scan-type">${escapeHtml(scan.scan_type || 'N/A')} | Age: ${scan.patient_age || '—'}</div>
+            <div class="scan-type">${escapeHtml(scan.scan_type || 'N/A')} | Age: ${scan.patient_age || 'â€”'}</div>
           </div>
           <span class="badge ${priority === 'critical' ? 'badge-critical' : priority === 'urgent' ? 'badge-urgent' : 'badge-normal'}">${priorityLabel}</span>
         </div>
         <div class="ai-finding">${escapeHtml(scan.ai_result || 'Pending analysis...')}</div>
         <div class="card-footer">
-          <div class="confidence">Confidence: <strong>${scan.confidence || '—'}%</strong></div>
-          <div class="time-ago">🕐 ${time}</div>
+          <div class="confidence">Confidence: <strong>${scan.confidence || 'â€”'}%</strong></div>
+          <div class="time-ago">ðŸ• ${time}</div>
         </div>
         <div style="margin-top:12px;">
           ${getStatusBadge(scan.status)}
@@ -299,23 +330,21 @@ function renderScans() {
   }).join('');
 }
 
-// ---------- Filter Function ----------
+// ---------- Filter ----------
 function filterScans(filter) {
   currentFilter = filter;
-  
-  // Update active tab
   document.querySelectorAll('.filter-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.filter === filter);
   });
-  
   renderScans();
 }
 
-// ---------- Open Scan Detail (inline) ----------
+// ---------- Open Scan Detail ----------
 function openScanDetail(scanId) {
   const scan = allScans.find(s => String(s.id) === String(scanId));
   if (!scan) {
-    showToast('Scan not found.', 'error');
+    showToast('Scan not found. Refreshing listâ€¦', 'info');
+    loadScans(false);
     return;
   }
   showDetail(scan);
@@ -334,14 +363,13 @@ function showDetail(scan) {
 
   document.getElementById('detailImage').src = imgSrc;
   document.getElementById('detailPatient').textContent = scan.patient_name || 'Unknown';
-  document.getElementById('detailPatientNumber').textContent = scan.patient_number || '—';
-  document.getElementById('detailPatientAge').textContent = scan.patient_age || '—';
-  document.getElementById('detailPatientPhone').textContent = scan.patient_phone || '—';
+  document.getElementById('detailPatientNumber').textContent = scan.patient_number || 'â€”';
+  document.getElementById('detailPatientAge').textContent = scan.patient_age || 'â€”';
+  document.getElementById('detailPatientPhone').textContent = scan.patient_phone || 'â€”';
   document.getElementById('detailScanType').textContent = scan.scan_type || 'N/A';
   document.getElementById('detailFinding').textContent = scan.ai_result || 'Pending';
   document.getElementById('detailConfidence').textContent = (scan.confidence || '--') + '%';
 
-  // Priority badge
   const priorityBadge = document.getElementById('detailPriority');
   const priorityColor = scan.priority_color || 'green';
   const priorityLabel = priorityColor === 'red' ? 'Critical' : priorityColor === 'orange' ? 'Urgent' : 'Normal';
@@ -358,7 +386,6 @@ function showDetail(scan) {
   statusBadge.className = `badge ${getStatusBadgeClass(scan.status || 'pending')}`;
   statusBadge.style.textTransform = 'capitalize';
 
-  // SMS Status
   const smsBadge = document.getElementById('detailSmsStatus');
   if (scan.sms_sent) {
     smsBadge.textContent = 'Sent';
@@ -368,27 +395,22 @@ function showDetail(scan) {
     smsBadge.className = 'badge badge-pending';
   }
 
-  document.getElementById('detailTime').textContent = scan.created_at
-    ? formatTime(scan.created_at) : 'Unknown';
-
-  // AI Engine
+  document.getElementById('detailTime').textContent = scan.created_at ? formatTime(scan.created_at) : 'Unknown';
   const engineEl = document.getElementById('detailEngine');
-  if (engineEl) engineEl.textContent = scan.ai_engine || '—';
+  if (engineEl) engineEl.textContent = scan.ai_engine || 'â€”';
 
-  // Detailed analysis and recommendations
   const analysisSection = document.getElementById('detailAnalysisSection');
   const analysisEl = document.getElementById('detailAnalysis');
   const recsEl = document.getElementById('detailRecommendations');
   const hasDetails = scan.ai_details || scan.ai_recommendations;
   if (analysisSection && hasDetails) {
     analysisSection.style.display = 'block';
-    if (analysisEl) analysisEl.textContent = scan.ai_details || '—';
-    if (recsEl) recsEl.textContent = scan.ai_recommendations || '—';
+    if (analysisEl) analysisEl.textContent = scan.ai_details || 'â€”';
+    if (recsEl) recsEl.textContent = scan.ai_recommendations || 'â€”';
   } else if (analysisSection) {
     analysisSection.style.display = 'none';
   }
 
-  // Store current scan for actions
   _currentScan = scan;
   _currentAIContext = {
     patientName: scan.patient_name,
@@ -397,7 +419,6 @@ function showDetail(scan) {
     details: scan.ai_details
   };
 
-  // Bind chat input
   const chatInput = document.getElementById('aiChatInput');
   if (chatInput && !chatInput.hasAttribute('data-bound')) {
     chatInput.addEventListener('keypress', (e) => {
@@ -406,7 +427,6 @@ function showDetail(scan) {
     chatInput.setAttribute('data-bound', 'true');
   }
 
-  // Show detail, hide grid
   if (scanGrid) scanGrid.style.display = 'none';
   if (filterTabs) filterTabs.style.display = 'none';
   if (criticalSection) criticalSection.style.display = 'none';
@@ -418,30 +438,24 @@ function closeDetail() {
   const scanGrid = document.getElementById('scanGrid');
   const filterTabs = document.querySelector('.filter-tabs');
   const criticalSection = document.querySelector('.content-card[style*="border-left: 5px solid #E63946"]');
-  
   if (detailView) detailView.style.display = 'none';
   if (scanGrid) scanGrid.style.display = '';
   if (filterTabs) filterTabs.style.display = '';
   if (criticalSection) criticalSection.style.display = '';
-  
   _currentScan = null;
 }
 
-// Badge helper classes for detail view
 function getUrgencyBadgeClass(urgency) {
   const map = { 'Critical': 'badge-critical', 'Urgent': 'badge-urgent', 'Moderate': 'badge-moderate', 'Normal': 'badge-normal' };
   return map[urgency] || 'badge-normal';
 }
-
 function getStatusBadgeClass(status) {
   if (status === 'completed') return 'badge-complete';
   if (status === 'urgent-flagged') return 'badge-urgent';
   return 'badge-pending';
 }
-
 // ---------- Review Actions ----------
 async function updateScanStatus(scanId, status, note) {
-  // Update Supabase
   if (supabase) {
     try {
       const { error } = await supabase.from('scans').update({
@@ -455,54 +469,54 @@ async function updateScanStatus(scanId, status, note) {
     }
   }
 
-  // Also update localStorage
-  const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
-  const idx = demoScans.findIndex(s => String(s.id) === String(scanId));
+  const scans = getLocalScans();
+  const idx = scans.findIndex(s => String(s.id) === String(scanId));
   if (idx !== -1) {
-    demoScans[idx].status = status;
-    demoScans[idx].review_note = note || '';
-    demoScans[idx].reviewed_at = new Date().toISOString();
-    localStorage.setItem('demoScans', JSON.stringify(demoScans));
+    scans[idx].status = status;
+    scans[idx].review_note = note || '';
+    scans[idx].reviewed_at = new Date().toISOString();
+    saveLocalScansLocal(scans);
+    const memIdx = allScans.findIndex(s => String(s.id) === String(scanId));
+    if (memIdx !== -1) allScans[memIdx] = { ...allScans[memIdx], ...scans[idx] };
   }
+  broadcastScanChange('update', { id: scanId, status, review_note: note, reviewed_at: new Date().toISOString() });
 }
 
-function approveScan() {
+function saveLocalScansLocal(scans) {
+  try {
+    localStorage.setItem('demoScans', JSON.stringify(scans));
+    const v = (parseInt(localStorage.getItem('demoScansVersion') || '0', 10) || 0) + 1;
+    localStorage.setItem('demoScansVersion', String(v));
+  } catch (e) { /* ignore */ }
+}
+
+async function approveScan() {
   if (!_currentScan) return;
-  updateScanStatus(_currentScan.id, 'completed', 'Approved by radiologist');
+  await updateScanStatus(_currentScan.id, 'completed', 'Approved by radiologist');
   showToast('Scan approved successfully!', 'success');
-  setTimeout(() => { closeDetail(); refreshScans(); }, 1000);
+  setTimeout(() => { closeDetail(); renderScans(); renderStatsFromState(); renderCriticalAlertsFromState(); }, 600);
 }
-
 function flagUrgent() {
   if (!_currentScan) return;
   updateScanStatus(_currentScan.id, 'urgent-flagged', 'Flagged as urgent by radiologist');
   showToast('Scan marked as urgent!', 'info');
-  setTimeout(() => { closeDetail(); refreshScans(); }, 1000);
+  setTimeout(() => { closeDetail(); renderScans(); renderStatsFromState(); renderCriticalAlertsFromState(); }, 600);
 }
-
-function completeReview() {
+async function completeReview() {
   if (!_currentScan) return;
-  updateScanStatus(_currentScan.id, 'completed', 'Review completed');
+  await updateScanStatus(_currentScan.id, 'completed', 'Review completed');
   showToast('Review completed!', 'success');
-  setTimeout(() => { closeDetail(); refreshScans(); }, 1000);
+  setTimeout(() => { closeDetail(); renderScans(); renderStatsFromState(); renderCriticalAlertsFromState(); }, 600);
 }
 
 // ---------- SMS ----------
 async function sendSMS() {
   const scan = _currentScan;
   if (!scan) { showToast('No scan selected.', 'error'); return; }
-
   const patientPhone = scan.patient_phone;
   const patientName = scan.patient_name;
-
-  if (!patientPhone) {
-    showToast('No phone number available for this patient.', 'error');
-    return;
-  }
-
-  if (scan.sms_sent) {
-    if (!confirm('SMS has already been sent to this patient. Send again?')) return;
-  }
+  if (!patientPhone) { showToast('No phone number available for this patient.', 'error'); return; }
+  if (scan.sms_sent) { if (!confirm('SMS has already been sent to this patient. Send again?')) return; }
 
   const message = `Dear ${patientName}, your scan report is ready. Please visit the hospital to collect it. Thank you. - ScanFlow AI`;
   showToast('Sending SMS...', 'info');
@@ -513,7 +527,6 @@ async function sendSMS() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone: patientPhone, message, scanId: scan.id })
     });
-
     if (response.ok) {
       await updateSmsStatus(scan.id, true);
       showToast('SMS sent successfully!', 'success');
@@ -524,7 +537,6 @@ async function sendSMS() {
       throw new Error('Failed to send SMS');
     }
   } catch (err) {
-    // Demo mode fallback
     showToast('SMS would be sent to ' + patientPhone + ' (Demo Mode)', 'info');
     await updateSmsStatus(scan.id, true);
     const smsBadge = document.getElementById('detailSmsStatus');
@@ -541,15 +553,17 @@ async function updateSmsStatus(scanId, sent) {
       console.log('Supabase SMS status update skipped:', err.message);
     }
   }
-  const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
-  const idx = demoScans.findIndex(s => String(s.id) === String(scanId));
+  const scans = getLocalScans();
+  const idx = scans.findIndex(s => String(s.id) === String(scanId));
   if (idx !== -1) {
-    demoScans[idx].sms_sent = sent;
-    demoScans[idx].sms_sent_at = sent ? now : null;
-    localStorage.setItem('demoScans', JSON.stringify(demoScans));
+    scans[idx].sms_sent = sent;
+    scans[idx].sms_sent_at = sent ? now : null;
+    saveLocalScansLocal(scans);
+    const memIdx = allScans.findIndex(s => String(s.id) === String(scanId));
+    if (memIdx !== -1) allScans[memIdx] = { ...allScans[memIdx], ...scans[idx] };
   }
+  broadcastScanChange('update', { id: scanId, sms_sent: sent, sms_sent_at: sent ? now : null });
 }
-
 // ---------- AI Analysis ----------
 function simulateAidocAI(scanType) {
   const URGENCY_LEVELS = ['Critical', 'Urgent', 'Moderate', 'Normal'];
@@ -557,7 +571,7 @@ function simulateAidocAI(scanType) {
   const conf = Math.floor(Math.random() * 40) + 50;
   return {
     aiResult: 'Simulated Finding: Abnormalities detected.',
-    details: 'This is a simulated analysis. Configure your OpenAI API key in js/ai-config.js for real GPT-4o image analysis.',
+    details: 'This is a simulated analysis. Configure your Gemini API key for real image analysis.',
     urgency: urg,
     confidence: conf,
     anatomicalRegion: 'General',
@@ -588,33 +602,26 @@ async function getBase64FromUrl(url) {
 async function runAIAnalysis() {
   const scan = _currentScan;
   if (!scan) return;
-  
   const btn = document.getElementById('runAiBtn');
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;margin:0 8px 0 0;display:inline-block;vertical-align:middle;"></span> Analyzing...';
   }
-
   try {
     let ai;
     let base64 = null;
     let mimeType = 'image/jpeg';
-    
     if (scan.image_url && scan.image_url !== 'demo-image-url') {
       try {
         const imgData = await getBase64FromUrl(scan.image_url);
         base64 = imgData.base64;
         mimeType = imgData.mimeType;
-      } catch(e) {
-        console.warn("Could not fetch image as base64, using fallback.", e);
-      }
+      } catch (e) { console.warn('Could not fetch image as base64, using fallback.', e); }
     }
-
     if (await isAIConfigured() && base64) {
       showToast('Sending image to AI for analysis...', 'info');
-      try {
-        ai = await analyzeImageWithAI(base64, mimeType, scan.scan_type, scan.patient_name);
-      } catch (err) {
+      try { ai = await analyzeImageWithAI(base64, mimeType, scan.scan_type, scan.patient_name); }
+      catch (err) {
         console.error('AI API error:', err);
         showToast('AI API error, falling back to simulation...', 'error');
         ai = simulateAidocAI(scan.scan_type);
@@ -624,9 +631,7 @@ async function runAIAnalysis() {
       await new Promise(r => setTimeout(r, 1500));
       ai = simulateAidocAI(scan.scan_type);
     }
-    
     _currentAIContext = ai;
-
     scan.ai_result = ai.aiResult;
     scan.confidence = ai.confidence;
     scan.urgency = ai.urgency;
@@ -634,7 +639,6 @@ async function runAIAnalysis() {
     scan.ai_details = ai.details || '';
     scan.ai_recommendations = ai.recommendations || '';
 
-    // Update Supabase
     if (supabase) {
       try {
         await supabase.from('scans').update({
@@ -645,22 +649,19 @@ async function runAIAnalysis() {
           ai_details: scan.ai_details,
           ai_recommendations: scan.ai_recommendations
         }).eq('id', scan.id);
-      } catch (e) {
-        console.warn('Supabase update failed:', e);
-      }
+      } catch (e) { console.warn('Supabase update failed:', e); }
     }
-    
-    // Update localStorage
-    const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
-    const idx = demoScans.findIndex(s => String(s.id) === String(scan.id));
+    const scans = getLocalScans();
+    const idx = scans.findIndex(s => String(s.id) === String(scan.id));
     if (idx !== -1) {
-      demoScans[idx] = { ...demoScans[idx], ...scan };
-      localStorage.setItem('demoScans', JSON.stringify(demoScans));
+      scans[idx] = { ...scans[idx], ...scan };
+      saveLocalScansLocal(scans);
     }
-    
+    const memIdx = allScans.findIndex(s => String(s.id) === String(scan.id));
+    if (memIdx !== -1) allScans[memIdx] = { ...allScans[memIdx], ...scan };
+    broadcastScanChange('update', scan);
     showToast('AI Analysis complete!', 'success');
     showDetail(scan);
-    
     const aiChatHistory = document.getElementById('aiChatHistory');
     if (aiChatHistory) {
       const sysMsg = document.createElement('div');
@@ -673,14 +674,10 @@ async function runAIAnalysis() {
       aiChatHistory.appendChild(sysMsg);
       aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
     }
-
   } catch (err) {
     showToast('Analysis failed: ' + err.message, 'error');
   } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerHTML = '🤖 Analyze with AI';
-    }
+    if (btn) { btn.disabled = false; btn.innerHTML = 'ðŸ¤– Analyze with AI'; }
   }
 }
 
@@ -689,24 +686,19 @@ async function handleChatSubmit() {
   const aiChatInput = document.getElementById('aiChatInput');
   const aiChatBtn = document.getElementById('aiChatBtn');
   const aiChatHistory = document.getElementById('aiChatHistory');
-  
   if (!aiChatInput || !aiChatBtn || !aiChatHistory) return;
-  
   const query = aiChatInput.value.trim();
   if (!query) return;
-  
   const userMsg = document.createElement('div');
-  userMsg.innerHTML = `<strong>You:</strong> ${query}`;
+  userMsg.innerHTML = `<strong>You:</strong> ${escapeHtml(query)}`;
   userMsg.style.background = 'rgba(0,119,182,0.1)';
   userMsg.style.padding = '8px';
   userMsg.style.borderRadius = '6px';
   aiChatHistory.appendChild(userMsg);
-  
   aiChatInput.value = '';
   aiChatBtn.disabled = true;
   aiChatBtn.textContent = '...';
   aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
-
   try {
     const scan = _currentScan || {};
     const context = _currentAIContext || {};
@@ -714,17 +706,14 @@ async function handleChatSubmit() {
     if (scan.scan_type) context.scanType = scan.scan_type;
     if (scan.ai_result) context.aiResult = scan.ai_result;
     if (scan.ai_details) context.details = scan.ai_details;
-
     const reply = await sendChatMessage(query, context);
-    
     const aiMsg = document.createElement('div');
-    aiMsg.innerHTML = `<strong>AI:</strong> ${reply}`;
+    aiMsg.innerHTML = `<strong>AI:</strong> ${escapeHtml(reply)}`;
     aiMsg.style.background = 'rgba(0,0,0,0.03)';
     aiMsg.style.padding = '8px';
     aiMsg.style.borderRadius = '6px';
     aiChatHistory.appendChild(aiMsg);
   } catch (err) {
-    console.warn('Chat API failed:', err);
     const aiMsg = document.createElement('div');
     aiMsg.innerHTML = `<strong>AI (Simulated):</strong> This is a simulated response. Check API configuration.`;
     aiMsg.style.background = 'rgba(0,0,0,0.03)';
@@ -738,7 +727,6 @@ async function handleChatSubmit() {
     aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
   }
 }
-
 // ---------- Helpers ----------
 function formatTime(dateVal) {
   try {
@@ -753,9 +741,9 @@ function formatTime(dateVal) {
 }
 
 function escapeHtml(str) {
-  if (!str) return '';
+  if (str == null) return '';
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = String(str);
   return div.innerHTML;
 }
 
@@ -769,87 +757,93 @@ function generatePlaceholder(scanType) {
   const color = colors[scanType] || '#023E8A';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">
     <rect width="400" height="250" fill="${color}" rx="8"/>
-    <text x="200" y="115" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-family="sans-serif" font-size="48">🏥</text>
+    <text x="200" y="115" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-family="sans-serif" font-size="48">ðŸ¥</text>
     <text x="200" y="155" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-family="sans-serif" font-size="14">${scanType || 'Medical Scan'}</text>
   </svg>`;
   return 'data:image/svg+xml;base64,' + btoa(svg);
 }
 
-// ---------- Real-time Subscription ----------
-function setupRealTimeSubscription() {
-  if (!supabase) {
-    console.log('[Radiologist Dashboard] Real-time updates not available in demo mode');
-    return;
+// ---------- Realtime integration ----------
+// Apply a single scan change (insert/update/delete) to in-memory state and re-render.
+function applyRealtimeChange(event, scan) {
+  if (!scan) return;
+  if (event === 'insert' || event === 'update') {
+    // Merge into local cache (in case realtime arrived before our localStorage write)
+    upsertLocalScan(scan);
+    const idx = allScans.findIndex(s => String(s.id) === String(scan.id));
+    if (idx === -1) allScans.unshift(scan);
+    else allScans[idx] = { ...allScans[idx], ...scan };
+  } else if (event === 'delete') {
+    removeLocalScan(scan.id);
+    allScans = allScans.filter(s => String(s.id) !== String(scan.id));
+  } else if (event === 'refresh') {
+    // Another tab rewrote the local list â€” re-read it
+    allScans = getLocalScans();
   }
-
-  try {
-    const channel = supabase
-      .channel('scans-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'scans'
-        },
-        (payload) => {
-          console.log('[Radiologist Dashboard] Real-time update:', payload.eventType, payload.new);
-          refreshScans();
-        }
-      )
-      .subscribe();
-
-    console.log('[Radiologist Dashboard] Real-time subscription established');
-  } catch (err) {
-    console.error('[Radiologist Dashboard] Failed to setup real-time subscription:', err.message);
+  renderScans();
+  renderStatsFromState();
+  renderCriticalAlertsFromState();
+  if (typeof renderAllScansTable === 'function') {
+    _allScansCache = allScans;
+    renderAllScansTable();
+  }
+  if (event === 'insert') {
+    showToast(`ðŸ“¥ New scan: ${scan.patient_name || 'Unknown'}`, 'success');
+  } else if (event === 'update') {
+    showToast(`ðŸ”„ Scan updated: ${scan.patient_name || 'Unknown'}`, 'info');
+  } else if (event === 'delete') {
+    showToast(`ðŸ—‘ï¸ Scan removed`, 'info');
   }
 }
 
 // ---------- Init ----------
-document.addEventListener('DOMContentLoaded', () => {
+function initDashboard() {
   if (window.authUtils) window.authUtils.requireAuth();
   loadStats();
   loadCriticalAlerts();
   loadScans();
-
-  setupRealTimeSubscription();
-
-  // Sidebar toggle for mobile
+  setupRealtimeSync({
+    onChange: applyRealtimeChange,
+    onStatus: (status) => {
+      console.log('[Dashboard] Realtime status:', status);
+    }
+  });
   const menuBtn = document.getElementById('mobileMenuBtn');
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
   if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.toggle('open'); overlay.classList.toggle('show'); });
   if (overlay) overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDashboard);
+} else {
+  initDashboard();
+}
 
 // ============================================================
 // ---------- All Scans Section ------------------------------
 // ============================================================
 
-// All-scans view state
 let _allScansCache = [];
 let _allScansFilterText = '';
 
-// Render the all-scans table
 async function loadAllScansView() {
   const container = document.getElementById('allScansTableContainer');
   if (!container) return;
-
   container.innerHTML = `
     <div style="text-align:center;padding:60px 24px;">
       <div class="spinner"></div>
       <p style="margin-top:12px;color:var(--text-light);font-size:0.85rem;">Loading all scans...</p>
     </div>`;
-
+  // Use the same data the dashboard uses so they stay in sync
   _allScansCache = await collectAllScans();
-
-  // Sort newest first
+  allScans = _allScansCache;
   _allScansCache.sort((a, b) => {
-    const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-    return bTime - aTime;
+    const at = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bt - at;
   });
-
   renderAllScansTable();
 }
 
@@ -861,33 +855,27 @@ function renderAllScansTable() {
   const q = (_allScansFilterText || '').trim().toLowerCase();
   const list = q
     ? _allScansCache.filter(s => {
-        const hay = [
-          s.patient_name, s.patient_number, s.scan_type,
-          s.urgency, s.ai_result, s.status, s.ai_engine,
-          s.priority_color
-        ].filter(Boolean).join(' ').toLowerCase();
+        const hay = [s.patient_name, s.patient_number, s.scan_type, s.urgency, s.ai_result, s.status, s.ai_engine, s.priority_color]
+          .filter(Boolean).join(' ').toLowerCase();
         return hay.includes(q);
       })
     : _allScansCache;
 
-  if (countEl) {
-    countEl.textContent = `${list.length} of ${_allScansCache.length} scan${_allScansCache.length === 1 ? '' : 's'}`;
-  }
+  if (countEl) countEl.textContent = `${list.length} of ${_allScansCache.length} scan${_allScansCache.length === 1 ? '' : 's'}`;
 
   if (_allScansCache.length === 0) {
     container.innerHTML = `
       <div class="all-scans-empty">
-        <div class="empty-icon">📭</div>
+        <div class="empty-icon">ðŸ“­</div>
         <h3 style="margin:0 0 8px 0;color:var(--text);">No scans available</h3>
-        <p style="margin:0;font-size:0.9rem;">Scans uploaded by radiographers will appear here.</p>
+        <p style="margin:0;font-size:0.9rem;">Scans uploaded by radiographers will appear here automatically.</p>
       </div>`;
     return;
   }
-
   if (list.length === 0) {
     container.innerHTML = `
       <div class="all-scans-empty">
-        <div class="empty-icon">🔍</div>
+        <div class="empty-icon">ðŸ”</div>
         <h3 style="margin:0 0 8px 0;color:var(--text);">No scans match your search</h3>
         <p style="margin:0;font-size:0.9rem;">Try a different keyword.</p>
       </div>`;
@@ -900,18 +888,17 @@ function renderAllScansTable() {
     const imgSrc = (scan.image_url && scan.image_url !== 'demo-image-url' && scan.image_url !== '')
       ? scan.image_url
       : generatePlaceholder(scan.scan_type);
-    const safeId = String(scan.id).replace(/'/g, "\\'").replace(/"/g, '"');
+    const safeId = String(scan.id).replace(/'/g, "\\'");
     const patient = escapeHtml(scan.patient_name || 'Unknown');
     const scanType = escapeHtml(scan.scan_type || 'N/A');
-    const patientNumber = escapeHtml(scan.patient_number || '—');
+    const patientNumber = escapeHtml(scan.patient_number || 'â€”');
     const aiResult = escapeHtml(scan.ai_result || 'Pending analysis');
-    const time = scan.created_at ? formatTime(scan.created_at) : '—';
-    const confidence = (scan.confidence != null && scan.confidence !== '') ? scan.confidence + '%' : '—';
+    const time = scan.created_at ? formatTime(scan.created_at) : 'â€”';
+    const confidence = (scan.confidence != null && scan.confidence !== '') ? scan.confidence + '%' : 'â€”';
     const status = (scan.status || 'pending').replace('-', ' ');
     const statusClass = scan.status === 'completed' ? 'badge-complete'
       : scan.status === 'urgent-flagged' ? 'badge-urgent' : 'badge-pending';
     const statusText = status.charAt(0).toUpperCase() + status.slice(1);
-
     return `
       <tr data-scan-id="${safeId}">
         <td>
@@ -919,7 +906,7 @@ function renderAllScansTable() {
             <img class="patient-thumb" src="${imgSrc}" alt="Scan" onerror="this.src='${generatePlaceholder(scan.scan_type)}'">
             <div>
               <div class="patient-name">${patient}</div>
-              <div class="patient-meta">#${patientNumber} · Age ${scan.patient_age || '—'}</div>
+              <div class="patient-meta">#${patientNumber} Â· Age ${scan.patient_age || 'â€”'}</div>
             </div>
           </div>
         </td>
@@ -931,8 +918,8 @@ function renderAllScansTable() {
         <td>${time}</td>
         <td>
           <div class="actions-cell">
-            <button class="btn-icon btn-view" title="View details" onclick="window.dashUtils.openScanFromAllScans('${safeId}')">👁️</button>
-            <button class="btn-icon btn-delete" title="Delete scan" onclick="window.dashUtils.confirmDeleteScan('${safeId}')">🗑️</button>
+            <button class="btn-icon btn-view" title="View details" onclick="window.dashUtils.openScanFromAllScans('${safeId}')">ðŸ‘ï¸</button>
+            <button class="btn-icon btn-delete" title="Delete scan" onclick="window.dashUtils.confirmDeleteScan('${safeId}')">ðŸ—‘ï¸</button>
           </div>
         </td>
       </tr>`;
@@ -962,50 +949,39 @@ function filterAllScansView() {
   renderAllScansTable();
 }
 
-// Open the dashboard detail view for a scan referenced from the all-scans table
 function openScanFromAllAllScansTable(scanId) {
   const scan = _allScansCache.find(s => String(s.id) === String(scanId));
-  if (!scan) {
-    showToast('Scan not found.', 'error');
-    return;
-  }
-  // Switch to dashboard section, then open the detail view
+  if (!scan) { showToast('Scan not found.', 'error'); return; }
+  // Make sure in-memory state has this scan
+  const memIdx = allScans.findIndex(s => String(s.id) === String(scanId));
+  if (memIdx === -1) allScans.unshift(scan);
+  else allScans[memIdx] = { ...allScans[memIdx], ...scan };
   showSection('dashboard');
-  // Sync allScans into the main allScans array so showDetail finds it
-  allScans = _allScansCache;
   openScanDetail(scanId);
 }
 
-// Confirm-delete modal
 function confirmDeleteScan(scanId) {
-  const scan = _allScansCache.find(s => String(s.id) === String(scanId));
-  if (!scan) {
-    showToast('Scan not found.', 'error');
-    return;
-  }
-
-  // Remove any existing modal
+  const scan = _allScansCache.find(s => String(s.id) === String(scanId)) || allScans.find(s => String(s.id) === String(scanId));
+  if (!scan) { showToast('Scan not found.', 'error'); return; }
   const existing = document.getElementById('deleteConfirmModal');
   if (existing) existing.remove();
-
   const modal = document.createElement('div');
   modal.id = 'deleteConfirmModal';
   modal.className = 'modal-backdrop';
   modal.innerHTML = `
     <div class="modal-card" onclick="event.stopPropagation()">
-      <h3>🗑️ Delete this scan?</h3>
+      <h3>ðŸ—‘ï¸ Delete this scan?</h3>
       <div class="modal-patient">
         <strong>${escapeHtml(scan.patient_name || 'Unknown')}</strong>
-        <br>${escapeHtml(scan.scan_type || 'N/A')} · Uploaded ${scan.created_at ? formatTime(scan.created_at) : '—'}
+        <br>${escapeHtml(scan.scan_type || 'N/A')} Â· Uploaded ${scan.created_at ? formatTime(scan.created_at) : 'â€”'}
       </div>
       <p>This action is permanent. The scan, its AI analysis, and review history will be removed for everyone.</p>
       <div class="modal-actions">
         <button class="btn btn-secondary btn-sm" id="cancelDeleteBtn" style="background:#fff;border:1.5px solid var(--border);color:var(--text);">Cancel</button>
-        <button class="btn btn-danger btn-sm" id="confirmDeleteBtn">🗑️ Yes, delete</button>
+        <button class="btn btn-danger btn-sm" id="confirmDeleteBtn">ðŸ—‘ï¸ Yes, delete</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
-
   const closeModal = () => { if (modal.parentNode) modal.remove(); };
   modal.addEventListener('click', closeModal);
   const cancelBtn = document.getElementById('cancelDeleteBtn');
@@ -1014,61 +990,40 @@ function confirmDeleteScan(scanId) {
   if (confirmBtn) {
     confirmBtn.addEventListener('click', async () => {
       confirmBtn.disabled = true;
-      confirmBtn.textContent = 'Deleting…';
+      confirmBtn.textContent = 'Deletingâ€¦';
       try {
         await deleteScan(scanId);
         closeModal();
       } catch (err) {
         confirmBtn.disabled = false;
-        confirmBtn.textContent = '🗑️ Yes, delete';
+        confirmBtn.textContent = 'ðŸ—‘ï¸ Yes, delete';
       }
     });
   }
 }
 
-// Delete scan from Supabase + localStorage
 async function deleteScan(scanId) {
-  // 1. Try Supabase
   if (supabase) {
     try {
       const { error } = await supabase.from('scans').delete().eq('id', scanId);
-      if (error) {
-        console.log('[Delete] Supabase error:', error.message);
-      }
-    } catch (err) {
-      console.log('[Delete] Supabase delete skipped:', err.message);
-    }
+      if (error) console.log('[Delete] Supabase error:', error.message);
+    } catch (err) { console.log('[Delete] Supabase delete skipped:', err.message); }
   }
-
-  // 2. Always remove from localStorage
-  try {
-    const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
-    const filtered = demoScans.filter(s => String(s.id) !== String(scanId));
-    localStorage.setItem('demoScans', JSON.stringify(filtered));
-  } catch (err) {
-    console.log('[Delete] localStorage update failed:', err.message);
-  }
-
-  // 3. Update in-memory caches
-  _allScansCache = _allScansCache.filter(s => String(s.id) !== String(scanId));
+  removeLocalScan(scanId);
   allScans = allScans.filter(s => String(s.id) !== String(scanId));
-
-  // 4. Re-render views
+  _allScansCache = _allScansCache.filter(s => String(s.id) !== String(scanId));
+  broadcastScanChange('delete', { id: scanId });
   renderAllScansTable();
-  if (typeof renderScans === 'function') renderScans();
-  if (typeof loadStats === 'function') loadStats();
-  if (typeof loadCriticalAlerts === 'function') loadCriticalAlerts();
-
-  // 5. If the deleted scan was open in the detail view, close it
+  renderScans();
+  renderStatsFromState();
+  renderCriticalAlertsFromState();
   if (_currentScan && String(_currentScan.id) === String(scanId)) {
-    if (typeof closeDetail === 'function') closeDetail();
+    closeDetail();
     showSection('all-scans');
   }
-
   showToast('Scan deleted successfully.', 'success');
 }
 
-// Expose utilities globally
 window.dashUtils = {
   openScanDetail,
   closeDetail,
@@ -1083,7 +1038,8 @@ window.dashUtils = {
   openScanFromAllScans: openScanFromAllAllScansTable,
   confirmDeleteScan,
   deleteScan,
-  showSection
+  showSection,
+  refreshScans
 };
 window.filterScans = filterScans;
 window.refreshScans = refreshScans;

@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Upload Scan — Radiographer — ScanFlow AI</title>
+  <title>Upload Scan â€” Radiographer â€” ScanFlow AI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
@@ -69,7 +69,7 @@
 <body>
 
   <!-- Mobile Menu Button -->
-  <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+  <button class="mobile-menu-btn" id="mobileMenuBtn">â˜°</button>
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
   <div class="app-layout">
@@ -88,10 +88,10 @@
       </div>
       <nav>
         <a href="radiographer-dashboard.html">
-          <span>📊</span> My Scans
+          <span>ðŸ“Š</span> My Scans
         </a>
         <a href="radiographer-upload.html" class="active">
-          <span>📤</span> Upload Scan
+          <span>ðŸ“¤</span> Upload Scan
         </a>
       </nav>
       <div class="sidebar-footer">
@@ -103,7 +103,7 @@
           </div>
         </div>
         <button onclick="window.authUtils.logout()" style="margin-top:12px;background:rgba(255,255,255,0.1);color:#fff;padding:8px 16px;border-radius:8px;font-size:0.82rem;width:100%;transition:0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-          🚪 Sign Out
+          ðŸšª Sign Out
         </button>
       </div>
     </aside>
@@ -118,7 +118,7 @@
           <p>Upload a medical image with patient information</p>
         </div>
         <div class="actions">
-          <a href="radiographer-dashboard.html" class="btn btn-secondary btn-sm">📊 View My Scans</a>
+          <a href="radiographer-dashboard.html" class="btn btn-secondary btn-sm">ðŸ“Š View My Scans</a>
         </div>
       </div>
 
@@ -127,9 +127,9 @@
         <!-- Dropzone -->
         <div class="upload-dropzone" id="dropzone">
           <input type="file" id="fileInput" accept=".jpg,.jpeg,.png">
-          <div class="upload-icon">📤</div>
+          <div class="upload-icon">ðŸ“¤</div>
           <h3>Drop your scan image here</h3>
-          <p>or click to browse — Supports JPG, PNG (max 10MB)</p>
+          <p>or click to browse â€” Supports JPG, PNG (max 10MB)</p>
           <div class="upload-preview" id="uploadPreview">
             <img id="previewImage" alt="Preview">
           </div>
@@ -138,7 +138,7 @@
         <!-- Patient Information Form -->
         <form id="uploadForm">
           <div class="content-card" style="padding: 24px; margin-bottom: 24px;">
-            <h3 style="margin-bottom: 20px; font-size: 1.1rem;">📋 Patient Information</h3>
+            <h3 style="margin-bottom: 20px; font-size: 1.1rem;">ðŸ“‹ Patient Information</h3>
             
             <div class="form-row">
               <div class="form-group">
@@ -188,7 +188,7 @@
 
           <!-- Priority Selector -->
           <div class="content-card" style="padding: 24px; margin-bottom: 24px;">
-            <h3 style="margin-bottom: 16px; font-size: 1.1rem;">🚦 Priority Level</h3>
+            <h3 style="margin-bottom: 16px; font-size: 1.1rem;">ðŸš¦ Priority Level</h3>
             <p style="color: var(--text-light); font-size: 0.85rem; margin-bottom: 20px;">
               Select the priority level for this case. This helps radiologists prioritize their review queue.
             </p>
@@ -214,7 +214,7 @@
           </div>
 
           <button type="submit" id="submitBtn" class="btn btn-primary" style="width: 100%; padding: 16px; font-size: 1rem;">
-            ⚡ Upload & Submit for Review
+            âš¡ Upload & Submit for Review
           </button>
         </form>
 
@@ -223,9 +223,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="js/supabase-config.js"></script>
-  <script type="module" src="js/auth.js"></script>
-  <script type="module" src="js/radiographer-upload.js"></script>
+  <script type="module" src="js/radiographer-upload.js"></script>  <!-- supabase-config + auth are imported by this module -->
 
 </body>
 </html>

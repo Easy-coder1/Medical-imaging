@@ -1,5 +1,9 @@
 // ===== ScanFlow AI — Radiographer Dashboard Module =====
 import { supabase } from './supabase-config.js';
+import { setupRealtimeSync, getLocalScans, upsertLocalScan, removeLocalScan, broadcastScanChange } from './realtime-sync.js';
+
+// ---------- State ----------
+let allScans = [];
 
 // ---------- Priority Color Helpers ----------
 function getPriorityColorDot(color) {
@@ -19,70 +23,17 @@ function getStatusBadge(status) {
 }
 
 function getUrgencyBadge(urgency) {
-  const map = { 
-    'Critical': 'badge-critical', 
-    'Urgent': 'badge-urgent', 
-    'Moderate': 'badge-moderate', 
-    'Normal': 'badge-normal' 
+  const map = {
+    'Critical': 'badge-critical',
+    'Urgent': 'badge-urgent',
+    'Moderate': 'badge-moderate',
+    'Normal': 'badge-normal'
   };
   return `<span class="badge ${map[urgency] || 'badge-normal'}">${urgency || 'N/A'}</span>`;
 }
 
-// ---------- Load Stats ----------
-async function loadStats() {
-  let total = 0, reviewed = 0, pending = 0, critical = 0;
-  let supabaseSuccess = false;
-
-  if (supabase) {
-    try {
-      const { data: scans, error } = await supabase.from('scans').select('*');
-      if (!error && scans && scans.length > 0) {
-        supabaseSuccess = true;
-        total = scans.length;
-        scans.forEach(s => {
-          if (s.status === 'completed') reviewed++;
-          if (s.status === 'pending' || !s.status) pending++;
-          if (s.urgency === 'Critical' || s.priority_color === 'red') critical++;
-        });
-      }
-    } catch (err) {
-      console.log('Supabase query failed:', err.message);
-    }
-  }
-
-  // Fallback to localStorage if Supabase didn't return data
-  if (!supabaseSuccess) {
-    const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
-    total = demoScans.length;
-    reviewed = demoScans.filter(s => s.status === 'completed').length;
-    pending = demoScans.filter(s => s.status === 'pending' || !s.status).length;
-    critical = demoScans.filter(s => s.urgency === 'Critical' || s.priority_color === 'red').length;
-  }
-
-  // Animate counters
-  animateCounter('statTotal', total);
-  animateCounter('statReviewed', reviewed);
-  animateCounter('statPending', pending);
-  animateCounter('statCritical', critical);
-}
-
-function animateCounter(id, target) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  let current = 0;
-  const step = Math.max(1, Math.ceil(target / 20));
-  const interval = setInterval(() => {
-    current += step;
-    if (current >= target) { current = target; clearInterval(interval); }
-    el.textContent = current;
-  }, 30);
-}
-
-// ---------- Load Uploads Table ----------
-async function loadUploads() {
-  const tbody = document.getElementById('uploadsTableBody');
-  if (!tbody) return;
-
+// ---------- Collect scans from Supabase + localStorage ----------
+async function collectAllScans() {
   let scans = [];
 
   if (supabase) {
@@ -90,31 +41,84 @@ async function loadUploads() {
       const { data, error } = await supabase
         .from('scans')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
-      if (!error && data) scans = data;
+        .order('created_at', { ascending: false });
+      if (!error && Array.isArray(data)) scans = data;
+      else if (error) console.log('[Radiographer Dashboard] Supabase error:', error.message);
     } catch (err) {
-      console.log('Supabase query failed:', err.message);
+      console.log('[Radiographer Dashboard] Supabase query failed:', err.message);
     }
   }
 
-  // Always merge localStorage demo scans with Supabase scans
-  const localScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
-  if (localScans.length > 0) {
+  // Merge in local scans (so freshly uploaded ones show up immediately)
+  const local = getLocalScans();
+  if (local.length > 0) {
     const existingIds = new Set(scans.map(s => String(s.id)));
-    const newLocalScans = localScans.filter(s => !existingIds.has(String(s.id)));
-    if (newLocalScans.length > 0) {
-      scans = [...scans, ...newLocalScans];
-    }
+    const newLocal = local.filter(s => s && s.id != null && !existingIds.has(String(s.id)));
+    if (newLocal.length > 0) scans = [...scans, ...newLocal];
   }
 
-  // Sort by created_at descending and limit to 20
-  scans.sort((a, b) => {
-    const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
-    return bTime - aTime;
+  // Dedupe + sort
+  const seen = new Set();
+  scans = scans.filter(s => {
+    if (!s || s.id == null) return false;
+    const k = String(s.id);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
   });
-  scans = scans.slice(0, 20);
+  scans.sort((a, b) => {
+    const at = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bt - at;
+  });
+
+  return scans;
+}
+
+// ---------- Load Stats ----------
+function renderStatsFromState() {
+  let total = 0, reviewed = 0, pending = 0, critical = 0;
+  total = allScans.length;
+  allScans.forEach(s => {
+    if (s.status === 'completed') reviewed++;
+    if (s.status === 'pending' || !s.status) pending++;
+    if (s.urgency === 'Critical' || s.priority_color === 'red') critical++;
+  });
+  animateCounter('statTotal', total);
+  animateCounter('statReviewed', reviewed);
+  animateCounter('statPending', pending);
+  animateCounter('statCritical', critical);
+}
+
+async function loadStats() {
+  if (allScans.length === 0) {
+    try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
+  }
+  renderStatsFromState();
+}
+
+function animateCounter(id, target) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let current = parseInt(el.textContent || '0', 10) || 0;
+  if (current === target) return;
+  const step = Math.max(1, Math.ceil(Math.abs(target - current) / 20));
+  const interval = setInterval(() => {
+    current += (target > current ? step : -step);
+    if ((step > 0 && current >= target) || (step < 0 && current <= target)) {
+      current = target; clearInterval(interval);
+    }
+    el.textContent = current;
+  }, 30);
+}
+
+// ---------- Load Uploads Table ----------
+function renderUploads() {
+  const tbody = document.getElementById('uploadsTableBody');
+  if (!tbody) return;
+
+  // Limit to 20 most recent
+  const scans = allScans.slice(0, 20);
 
   if (scans.length === 0) {
     tbody.innerHTML = `
@@ -130,7 +134,6 @@ async function loadUploads() {
   tbody.innerHTML = scans.map(scan => {
     const time = scan.created_at ? formatTime(scan.created_at) : 'Recent';
     const priorityColor = scan.priority_color || 'green';
-    
     return `
       <tr>
         <td style="text-align:center;">${getPriorityColorDot(priorityColor)}</td>
@@ -147,6 +150,31 @@ async function loadUploads() {
   }).join('');
 }
 
+async function loadUploads() {
+  if (allScans.length === 0) {
+    try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
+  }
+  renderUploads();
+}
+
+// ---------- Realtime handler ----------
+function applyRealtimeChange(event, scan) {
+  if (!scan) return;
+  if (event === 'insert' || event === 'update') {
+    upsertLocalScan(scan);
+    const idx = allScans.findIndex(s => String(s.id) === String(scan.id));
+    if (idx === -1) allScans.unshift(scan);
+    else allScans[idx] = { ...allScans[idx], ...scan };
+  } else if (event === 'delete') {
+    removeLocalScan(scan.id);
+    allScans = allScans.filter(s => String(s.id) !== String(scan.id));
+  } else if (event === 'refresh') {
+    allScans = getLocalScans();
+  }
+  renderUploads();
+  renderStatsFromState();
+}
+
 // ---------- Helpers ----------
 function formatTime(dateVal) {
   try {
@@ -161,22 +189,30 @@ function formatTime(dateVal) {
 }
 
 function escapeHtml(str) {
-  if (!str) return '';
+  if (str == null) return '';
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = String(str);
   return div.innerHTML;
 }
 
 // ---------- Init ----------
-document.addEventListener('DOMContentLoaded', () => {
+function initDashboard() {
   if (window.authUtils) window.authUtils.requireAuth();
   loadStats();
   loadUploads();
-
-  // Sidebar toggle for mobile
+  setupRealtimeSync({
+    onChange: applyRealtimeChange,
+    onStatus: (status) => console.log('[Radiographer Dashboard] Realtime:', status)
+  });
   const menuBtn = document.getElementById('mobileMenuBtn');
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
   if (menuBtn) menuBtn.addEventListener('click', () => { sidebar.classList.toggle('open'); overlay.classList.toggle('show'); });
   if (overlay) overlay.addEventListener('click', () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); });
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initDashboard);
+} else {
+  initDashboard();
+}

@@ -1,22 +1,16 @@
 // ===== ScanFlow AI — Radiographer Upload Module =====
 import { supabase } from './supabase-config.js';
+import { broadcastScanChange, upsertLocalScan, saveLocalScans, getLocalScans } from './realtime-sync.js';
 
 // ---------- Priority Selector ----------
 function selectPriority(element) {
-  // Remove selected class from all options
   document.querySelectorAll('.priority-option').forEach(opt => {
     opt.classList.remove('selected');
   });
-  
-  // Add selected class to clicked option
   element.classList.add('selected');
-  
-  // Update hidden input
   const priority = element.dataset.priority;
   document.getElementById('priorityColor').value = priority;
 }
-
-// Make selectPriority globally available
 window.selectPriority = selectPriority;
 
 // ---------- Toast Notification ----------
@@ -62,19 +56,19 @@ if (dropzone) {
 
 function handleFile(file) {
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-  if (!validTypes.includes(file.type)) { 
-    showToast('Please upload a JPG or PNG image.', 'error'); 
-    return; 
+  if (!validTypes.includes(file.type)) {
+    showToast('Please upload a JPG or PNG image.', 'error');
+    return;
   }
-  if (file.size > 10 * 1024 * 1024) { 
-    showToast('File size must be under 10MB.', 'error'); 
-    return; 
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('File size must be under 10MB.', 'error');
+    return;
   }
   selectedFile = file;
   const reader = new FileReader();
-  reader.onload = (e) => { 
-    previewImage.src = e.target.result; 
-    previewContainer.style.display = 'block'; 
+  reader.onload = (e) => {
+    previewImage.src = e.target.result;
+    previewContainer.style.display = 'block';
   };
   reader.readAsDataURL(file);
 }
@@ -86,8 +80,7 @@ const submitBtn = document.getElementById('submitBtn');
 if (uploadForm) {
   uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    
-    // Get form values
+
     const patientName = document.getElementById('patientName').value.trim();
     const patientNumber = document.getElementById('patientNumber').value.trim();
     const patientAge = parseInt(document.getElementById('patientAge').value);
@@ -96,7 +89,6 @@ if (uploadForm) {
     const scanType = document.getElementById('scanType').value;
     const priorityColor = document.getElementById('priorityColor').value;
 
-    // Validation
     if (!patientName) { showToast('Please enter a patient name.', 'error'); return; }
     if (!patientNumber) { showToast('Please enter a patient number.', 'error'); return; }
     if (!patientAge || patientAge < 0 || patientAge > 150) { showToast('Please enter a valid age.', 'error'); return; }
@@ -130,6 +122,7 @@ if (uploadForm) {
 
       // Prepare scan data
       const scanData = {
+        id: 'scan_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9),
         patient_name: patientName,
         patient_number: patientNumber,
         patient_age: patientAge,
@@ -144,37 +137,58 @@ if (uploadForm) {
         created_at: new Date().toISOString()
       };
 
-      // Always save to localStorage first for reliable persistence
-      saveDemoScan(scanData);
+      // 1. Always save to localStorage first for reliable persistence
+      const existing = getLocalScans();
+      existing.unshift(scanData);
+      saveLocalScans(existing);
 
-      // Also save to Supabase if available
+      // 2. Broadcast the change to all other tabs immediately so the
+      //    radiologist sees the scan without refreshing
+      broadcastScanChange('insert', scanData);
+
+      // 3. Also try to save to Supabase (best effort)
+      let supabaseInserted = false;
       if (supabase) {
         try {
-          const { error: dbError } = await supabase.from('scans').insert(scanData);
-          if (dbError) {
-            console.log('Supabase insert returned error:', dbError.message);
-          } else {
-            console.log('Scan saved to Supabase successfully');
+          // Don't send our local id — let Supabase generate the UUID
+          const { id, ...supabaseData } = scanData;
+          const { data, error } = await supabase.from('scans').insert(supabaseData).select();
+          if (error) {
+            console.log('Supabase insert returned error:', error.message);
+          } else if (data && data[0]) {
+            supabaseInserted = true;
+            // Replace the local id with the Supabase UUID so both systems agree
+            const newScan = { ...scanData, id: data[0].id };
+            const list = getLocalScans();
+            const idx = list.findIndex(s => s.id === scanData.id);
+            if (idx !== -1) {
+              list[idx] = newScan;
+              saveLocalScans(list);
+              // Broadcast the id correction
+              broadcastScanChange('update', newScan);
+            }
           }
         } catch (dbErr) {
           console.log('Supabase save failed:', dbErr.message);
         }
       }
 
-      showToast('Scan uploaded successfully! It will appear in the radiologist\'s queue.', 'success');
-      
+      const storedIn = supabaseInserted ? 'Supabase + local cache' : 'local cache (Supabase unreachable)';
+      showToast(`Scan uploaded! Saved to ${storedIn}.`, 'success');
+
       // Reset form
       uploadForm.reset();
       previewContainer.style.display = 'none';
       selectedFile = null;
       document.getElementById('priorityColor').value = 'red';
       document.querySelectorAll('.priority-option').forEach(opt => opt.classList.remove('selected'));
-      document.querySelector('.priority-option.critical').classList.add('selected');
+      const critOpt = document.querySelector('.priority-option.critical');
+      if (critOpt) critOpt.classList.add('selected');
 
-      // Redirect to dashboard after a delay
+      // Redirect after a delay so the toast is visible
       setTimeout(() => {
         window.location.href = 'radiographer-dashboard.html';
-      }, 2000);
+      }, 1500);
 
     } catch (err) {
       showToast('Upload failed: ' + err.message, 'error');
@@ -183,17 +197,6 @@ if (uploadForm) {
       submitBtn.innerHTML = '⚡ Upload & Submit for Review';
     }
   });
-}
-
-function saveDemoScan(scanData) {
-  // Always generate a local ID for localStorage persistence
-  if (!scanData.id || String(scanData.id).startsWith('scan_')) {
-    scanData.id = 'scan_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-  }
-  const existing = JSON.parse(localStorage.getItem('demoScans') || '[]');
-  existing.push(scanData);
-  localStorage.setItem('demoScans', JSON.stringify(existing));
-  console.log('Scan saved to localStorage:', scanData.id);
 }
 
 // ---------- Init ----------
