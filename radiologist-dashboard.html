@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Radiologist Dashboard â€” ScanFlow AI</title>
+  <title>Radiologist Dashboard — ScanFlow AI</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
@@ -318,7 +318,7 @@
 <body>
 
   <!-- Mobile Menu Button -->
-  <button class="mobile-menu-btn" id="mobileMenuBtn">â˜°</button>
+  <button class="mobile-menu-btn" id="mobileMenuBtn">&#9776;</button>
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
   <div class="app-layout">
@@ -337,10 +337,10 @@
       </div>
       <nav>
         <a href="#dashboard" class="active" data-nav="dashboard" onclick="showSection('dashboard'); return false;">
-          <span>ðŸ“Š</span> Dashboard
+          <span>&#128202;</span> Dashboard
         </a>
         <a href="#all-scans" data-nav="all-scans" onclick="showSection('all-scans'); return false;">
-          <span>ðŸ“‹</span> All Scans
+          <span>&#128203;</span> All Scans
         </a>
       </nav>
       <div class="sidebar-footer">
@@ -352,7 +352,7 @@
           </div>
         </div>
         <button onclick="window.authUtils.logout()" style="margin-top:12px;background:rgba(255,255,255,0.1);color:#fff;padding:8px 16px;border-radius:8px;font-size:0.82rem;width:100%;transition:0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-          ðŸšª Sign Out
+          &#128682; Sign Out
         </button>
       </div>
     </aside>
@@ -366,8 +366,8 @@
       <!-- Page Header -->
       <div class="page-header">
         <div>
-          <h1>ðŸ¥ Radiologist Dashboard</h1>
-          <p>Review scans by priority â€” Critical cases require immediate attention</p>
+          <h1>&#127977; Radiologist Dashboard</h1>
+          <p>Review scans by priority &mdash; Critical cases require immediate attention</p>
         </div>
         <div class="actions">
         </div>
@@ -376,22 +376,22 @@
       <!-- Stat Cards -->
       <div class="stat-cards">
         <div class="stat-card blue">
-          <div class="stat-icon">ðŸ“</div>
+          <div class="stat-icon">&#128193;</div>
           <div class="stat-value" id="statTotal">0</div>
           <div class="stat-label">Total Scans</div>
         </div>
         <div class="stat-card red">
-          <div class="stat-icon">ðŸš¨</div>
+          <div class="stat-icon">&#128680;</div>
           <div class="stat-value" id="statCritical">0</div>
           <div class="stat-label">Critical</div>
         </div>
         <div class="stat-card orange">
-          <div class="stat-icon">âš¡</div>
+          <div class="stat-icon">&#9888;</div>
           <div class="stat-value" id="statUrgent">0</div>
           <div class="stat-label">Urgent</div>
         </div>
         <div class="stat-card green">
-          <div class="stat-icon">âœ…</div>
+          <div class="stat-icon">&#10004;</div>
           <div class="stat-value" id="statReviewed">0</div>
           <div class="stat-label">Reviewed</div>
         </div>
@@ -399,7 +399,7 @@
 
       <!-- Emergency Alerts -->
       <div class="content-card" style="border-left: 5px solid #E63946;">
-        <h2 style="color: #E63946;">ðŸš¨ Critical Cases â€” Immediate Attention Required</h2>
+        <h2 style="color: #E63946;">&#128680; Critical Cases &mdash; Immediate Attention Required</h2>
         <div class="alerts-list" id="criticalAlertsList">
           <div style="text-align:center;padding:20px;color:var(--text-light);">
             <div class="spinner"></div>
@@ -439,99 +439,99 @@
       <!-- Scan Detail View (inline) -->
       <div id="detailView" style="display:none; margin-top: 24px;">
         <button onclick="window.dashUtils.closeDetail()" class="btn btn-secondary btn-sm" style="margin-bottom:20px;">
-          â† Back to Dashboard
+          &#8592; Back to Dashboard
         </button>
 
         <div class="review-layout">
           <!-- Image Card -->
           <div class="review-image-card">
-            <h3 style="align-self:flex-start;margin-bottom:16px;">ðŸ–¼ï¸ Scan Image</h3>
+            <h3 style="align-self:flex-start;margin-bottom:16px;">&#128424; Scan Image</h3>
             <img id="detailImage" src="" alt="Scan Image">
             <p style="font-size:0.82rem;color:var(--text-light);margin-top:8px;">
-              Uploaded: <span id="detailTime">â€”</span>
+              Uploaded: <span id="detailTime">&mdash;</span>
             </p>
           </div>
 
           <!-- Info Card -->
           <div class="review-info-card">
-            <h3>ðŸ“‹ Scan Details</h3>
+            <h3>&#128203; Scan Details</h3>
 
             <div class="info-row">
               <span class="label">Patient Name</span>
-              <span class="value" id="detailPatient">â€”</span>
+              <span class="value" id="detailPatient">&mdash;</span>
             </div>
             <div class="info-row">
               <span class="label">Patient Number</span>
-              <span class="value" id="detailPatientNumber">â€”</span>
+              <span class="value" id="detailPatientNumber">&mdash;</span>
             </div>
             <div class="info-row">
               <span class="label">Age</span>
-              <span class="value" id="detailPatientAge">â€”</span>
+              <span class="value" id="detailPatientAge">&mdash;</span>
             </div>
             <div class="info-row">
               <span class="label">Phone Number</span>
-              <span class="value" id="detailPatientPhone">â€”</span>
+              <span class="value" id="detailPatientPhone">&mdash;</span>
             </div>
             <div class="info-row">
               <span class="label">Scan Type</span>
-              <span class="value" id="detailScanType">â€”</span>
+              <span class="value" id="detailScanType">&mdash;</span>
             </div>
             <div class="info-row">
               <span class="label">Priority</span>
-              <span class="value"><span class="badge" id="detailPriority">â€”</span></span>
+              <span class="value"><span class="badge" id="detailPriority">&mdash;</span></span>
             </div>
             <div class="info-row">
               <span class="label">AI Finding</span>
-              <span class="value" id="detailFinding" style="color:var(--danger);">â€”</span>
+              <span class="value" id="detailFinding" style="color:var(--danger);">&mdash;</span>
             </div>
             <div class="info-row">
               <span class="label">Confidence</span>
-              <span class="value" id="detailConfidence">â€”</span>
+              <span class="value" id="detailConfidence">&mdash;</span>
             </div>
             <div class="info-row">
               <span class="label">Urgency Level</span>
-              <span class="value"><span class="badge" id="detailUrgency">â€”</span></span>
+              <span class="value"><span class="badge" id="detailUrgency">&mdash;</span></span>
             </div>
             <div class="info-row">
               <span class="label">AI Engine</span>
-              <span class="value" id="detailEngine" style="color:var(--primary);">â€”</span>
+              <span class="value" id="detailEngine" style="color:var(--primary);">&mdash;</span>
             </div>
             <div class="info-row">
               <span class="label">Review Status</span>
-              <span class="value"><span class="badge" id="detailStatus">â€”</span></span>
+              <span class="value"><span class="badge" id="detailStatus">&mdash;</span></span>
             </div>
             <div class="info-row">
               <span class="label">SMS Status</span>
-              <span class="value"><span class="badge" id="detailSmsStatus">â€”</span></span>
+              <span class="value"><span class="badge" id="detailSmsStatus">&mdash;</span></span>
             </div>
 
             <!-- Detailed Analysis Section -->
             <div id="detailAnalysisSection" style="display:none; margin-top:16px;">
               <div class="ai-detail-section" style="margin-bottom:12px;">
                 <div class="label">Detailed Analysis</div>
-                <div class="value" id="detailAnalysis" style="font-size:0.9rem;line-height:1.65;color:var(--text);white-space:pre-wrap;">â€”</div>
+                <div class="value" id="detailAnalysis" style="font-size:0.9rem;line-height:1.65;color:var(--text);white-space:pre-wrap;">&mdash;</div>
               </div>
               <div class="ai-detail-section">
                 <div class="label">Recommendations</div>
-                <div class="value" id="detailRecommendations" style="font-size:0.9rem;line-height:1.65;color:var(--text);white-space:pre-wrap;">â€”</div>
+                <div class="value" id="detailRecommendations" style="font-size:0.9rem;line-height:1.65;color:var(--text);white-space:pre-wrap;">&mdash;</div>
               </div>
             </div>
 
             <div class="review-actions">
               <button id="runAiBtn" onclick="window.dashUtils.runAIAnalysis()" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #4A00E0, #8E2DE2);">
-                ðŸ¤– Analyze with AI
+                &#129296; Analyze with AI
               </button>
               <button onclick="window.dashUtils.sendSMS()" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #0077B6, #00B4D8);">
-                ðŸ“± Send SMS to Patient
+                &#128241; Send SMS to Patient
               </button>
               <button onclick="window.dashUtils.approveScan()" class="btn btn-success btn-sm">
-                âœ… Approve
+                &#10004; Approve
               </button>
               <button onclick="window.dashUtils.flagUrgent()" class="btn btn-danger btn-sm">
-                ðŸš¨ Mark Urgent
+                &#128680; Mark Urgent
               </button>
               <button onclick="window.dashUtils.completeReview()" class="btn btn-primary btn-sm">
-                âœ”ï¸ Complete Review
+                &#10004; Complete Review
               </button>
             </div>
           </div>
@@ -539,7 +539,7 @@
 
         <!-- AI Chat Card -->
         <div class="content-card" id="aiChatCard" style="margin-top: 24px;">
-          <h2 style="margin-bottom: 12px;">ðŸ’¬ ScanFlow AI Assistant</h2>
+          <h2 style="margin-bottom: 12px;">&#128172; ScanFlow AI Assistant</h2>
           <p style="color: var(--text-light); font-size: 0.85rem; margin-top: -6px; margin-bottom: 16px;">
             Ask the AI questions about anatomy, medical findings, pathologies, or the uploaded scan.
           </p>
@@ -565,19 +565,19 @@
 
         <div class="page-header">
           <div>
-            <h1>ðŸ“‹ All Scans</h1>
-            <p>Complete list of every scan â€” view details or delete when no longer needed</p>
+            <h1>&#128203; All Scans</h1>
+            <p>Complete list of every scan &mdash; view details or delete when no longer needed</p>
           </div>
           <div class="actions">
             <button id="refreshAllScansBtn" onclick="window.dashUtils.loadAllScansView()" class="btn btn-secondary btn-sm" style="background: #fff;border:1.5px solid var(--border);color:var(--text);">
-              ðŸ”„ Refresh
+              &#128260; Refresh
             </button>
           </div>
         </div>
 
         <div class="content-card">
           <div class="all-scans-toolbar">
-            <input type="text" id="allScansSearch" class="all-scans-search" placeholder="ðŸ” Search by patient name, scan type, or status..." oninput="window.dashUtils.filterAllScansView()">
+            <input type="text" id="allScansSearch" class="all-scans-search" placeholder="&#128269; Search by patient name, scan type, or status..." oninput="window.dashUtils.filterAllScansView()">
             <span id="allScansCount" class="all-scans-count">0 scans</span>
           </div>
 
@@ -594,7 +594,7 @@
   </div>
 
   <!-- Scripts -->
-  <script type="module" src="js/radiologist-dashboard.js"></script>  <!-- supabase-config + auth are imported by this module -->
+  <script type="module" src="js/radiologist-dashboard.js"></script>
 
 </body>
 </html>

@@ -11,7 +11,7 @@
 <body>
 
   <!-- Mobile Menu Button -->
-  <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+  <button class="mobile-menu-btn" id="mobileMenuBtn">&#9776;</button>
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
   <div class="app-layout">
@@ -30,13 +30,10 @@
       </div>
       <nav>
         <a href="radiologist-dashboard.html">
-          <span>📊</span> Dashboard
+          <span>&#128202;</span> Dashboard
         </a>
         <a href="upload.html" class="active">
-          <span>📤</span> Upload Scan
-        </a>
-        <a href="review.html">
-          <span>📋</span> Review Scans
+          <span>&#128228;</span> Upload Scan
         </a>
       </nav>
       <div class="sidebar-footer">
@@ -48,7 +45,7 @@
           </div>
         </div>
         <button onclick="window.authUtils.logout()" style="margin-top:12px;background:rgba(255,255,255,0.1);color:#fff;padding:8px 16px;border-radius:8px;font-size:0.82rem;width:100%;transition:0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-          🚪 Sign Out
+          &#128682; Sign Out
         </button>
       </div>
     </aside>
@@ -63,7 +60,7 @@
           <p>Upload a medical image for AI-powered analysis</p>
         </div>
         <div class="actions">
-          <a href="review.html" class="btn btn-secondary btn-sm">📋 View All Scans</a>
+          <a href="radiologist-dashboard.html" class="btn btn-secondary btn-sm">&#128203; View All Scans</a>
         </div>
       </div>
 
@@ -72,7 +69,7 @@
         <!-- Dropzone -->
         <div class="upload-dropzone" id="dropzone">
           <input type="file" id="fileInput" accept=".jpg,.jpeg,.png">
-          <div class="upload-icon">📤</div>
+          <div class="upload-icon">&#128228;</div>
           <h3>Drop your scan image here</h3>
           <p>or click to browse — Supports JPG, PNG (max 10MB)</p>
           <div class="upload-preview" id="uploadPreview">
@@ -104,14 +101,14 @@
             </div>
           </div>
           <button type="submit" id="submitBtn" class="btn btn-primary" style="margin-top:8px;">
-            ⚡ Upload & Analyze
+            &#9889; Upload & Analyze
           </button>
         </form>
 
         <!-- AI Result Card -->
         <div class="ai-result-card" id="aiResultCard">
           <div class="ai-result-header">
-            <h3>🧠 AI Analysis Results</h3>
+            <h3>&#129504; AI Analysis Results</h3>
             <span class="ai-engine-badge" id="resultEngine">—</span>
           </div>
           <div class="ai-result-grid">
@@ -142,14 +139,14 @@
             </div>
           </div>
           <div style="margin-top:20px;display:flex;gap:12px;">
-            <a href="review.html" class="btn btn-primary btn-sm">📋 Review Now</a>
-            <a href="upload.html" class="btn btn-secondary btn-sm">📤 Upload Another</a>
+            <a href="radiologist-dashboard.html" class="btn btn-primary btn-sm">&#128203; Review Now</a>
+            <a href="upload.html" class="btn btn-secondary btn-sm">&#128228; Upload Another</a>
           </div>
         </div>
 
         <!-- AI Chat Card -->
         <div class="content-card" id="aiChatCard" style="margin-top: 24px;">
-          <h2 style="margin-bottom: 12px;">💬 ScanFlow AI Assistant</h2>
+          <h2 style="margin-bottom: 12px;">&#128172; ScanFlow AI Assistant</h2>
           <p style="color: var(--text-light); font-size: 0.85rem; margin-top: -6px; margin-bottom: 16px;">
             Ask the AI questions about anatomy, medical findings, pathologies, or the uploaded scan.
           </p>

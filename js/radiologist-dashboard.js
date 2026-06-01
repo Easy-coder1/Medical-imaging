@@ -509,39 +509,81 @@ async function completeReview() {
   setTimeout(() => { closeDetail(); renderScans(); renderStatsFromState(); renderCriticalAlertsFromState(); }, 600);
 }
 
-// ---------- SMS ----------
-async function sendSMS() {
+// ---------- SMS: Show composer modal ----------
+function sendSMS() {
   const scan = _currentScan;
   if (!scan) { showToast('No scan selected.', 'error'); return; }
   const patientPhone = scan.patient_phone;
-  const patientName = scan.patient_name;
+  const patientName = scan.patient_name || 'Patient';
   if (!patientPhone) { showToast('No phone number available for this patient.', 'error'); return; }
-  if (scan.sms_sent) { if (!confirm('SMS has already been sent to this patient. Send again?')) return; }
 
-  const message = `Dear ${patientName}, your scan report is ready. Please visit the hospital to collect it. Thank you. - ScanFlow AI`;
-  showToast('Sending SMS...', 'info');
+  // Remove existing modal
+  const existing = document.getElementById('smsComposerModal');
+  if (existing) existing.remove();
 
-  try {
-    const response = await fetch('/api/send-sms', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: patientPhone, message, scanId: scan.id })
-    });
-    if (response.ok) {
+  const modal = document.createElement('div');
+  modal.id = 'smsComposerModal';
+  modal.className = 'modal-backdrop';
+  modal.innerHTML = `
+    <div class="modal-card" onclick="event.stopPropagation()" style="max-width:520px;">
+      <h3 style="color:var(--primary);margin:0 0 4px 0;">&#128241; Send SMS to Patient</h3>
+      <p style="color:var(--text-light);font-size:0.85rem;margin:0 0 16px 0;">
+        To: <strong>${escapeHtml(patientName)}</strong> &mdash; ${escapeHtml(patientPhone)}
+        ${scan.sms_sent ? '<br><span style="color:#F4A261;">&#9888; SMS was already sent before. Sending again will notify the patient.</span>' : ''}
+      </p>
+      <div class="form-group" style="margin-bottom:16px;">
+        <label for="smsMessage" style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--text);">Your Message</label>
+        <textarea id="smsMessage" rows="5" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:0.9rem;color:var(--text);background:#FAFBFC;resize:vertical;"
+          placeholder="Type your message to the patient...">Dear ${escapeHtml(patientName)}, your scan report has been reviewed. Please visit the hospital at your earliest convenience to collect the report.
+
+Thank you.
+- ScanFlow AI</textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary btn-sm" id="smsCancelBtn" style="background:#fff;border:1.5px solid var(--border);color:var(--text);">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="smsSendBtn" style="background:linear-gradient(135deg, #0077B6, #00B4D8);">&#128241; Send SMS</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  const close = () => { if (modal.parentNode) modal.remove(); };
+  modal.addEventListener('click', close);
+  document.getElementById('smsCancelBtn').onclick = close;
+
+  document.getElementById('smsSendBtn').onclick = async () => {
+    const message = document.getElementById('smsMessage').value.trim();
+    if (!message) { showToast('Please type a message.', 'error'); return; }
+
+    const sendBtn = document.getElementById('smsSendBtn');
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;margin:0;display:inline-block;vertical-align:middle;"></span> Sending...';
+
+    try {
+      const response = await fetch('/api/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: patientPhone, message, scanId: scan.id })
+      });
+      if (response.ok) {
+        await updateSmsStatus(scan.id, true);
+        showToast('SMS sent successfully!', 'success');
+        const smsBadge = document.getElementById('detailSmsStatus');
+        if (smsBadge) { smsBadge.textContent = 'Sent'; smsBadge.className = 'badge badge-complete'; }
+        if (_currentScan) { _currentScan.sms_sent = true; _currentScan.sms_sent_at = new Date().toISOString(); }
+        close();
+      } else {
+        throw new Error('Failed to send SMS');
+      }
+    } catch (err) {
+      // Demo mode fallback
       await updateSmsStatus(scan.id, true);
-      showToast('SMS sent successfully!', 'success');
+      showToast('SMS sent in demo mode to ' + patientPhone, 'success');
       const smsBadge = document.getElementById('detailSmsStatus');
       if (smsBadge) { smsBadge.textContent = 'Sent'; smsBadge.className = 'badge badge-complete'; }
       if (_currentScan) { _currentScan.sms_sent = true; _currentScan.sms_sent_at = new Date().toISOString(); }
-    } else {
-      throw new Error('Failed to send SMS');
+      close();
     }
-  } catch (err) {
-    showToast('SMS would be sent to ' + patientPhone + ' (Demo Mode)', 'info');
-    await updateSmsStatus(scan.id, true);
-    const smsBadge = document.getElementById('detailSmsStatus');
-    if (smsBadge) { smsBadge.textContent = 'Sent'; smsBadge.className = 'badge badge-complete'; }
-  }
+  };
 }
 
 async function updateSmsStatus(scanId, sent) {

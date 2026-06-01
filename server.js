@@ -1,18 +1,42 @@
-// ===== ScanFlow AI — Backend Proxy Server =====
-// This server keeps your OpenAI API key secure (server-side only).
-// The frontend sends image data to this server, which forwards the request to OpenAI.
+// ===== ScanFlow AI — Backend Proxy Server (OPTIONAL) =====
+// This server provides AI analysis via Gemini API.
+// The app works fully in demo mode without this server.
+// To use AI features, set up .env and run: npm start
 
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
+try {
+  require('dotenv').config();
+} catch (e) {
+  // dotenv not available - running without it
+}
+
+let express, cors;
+
+try {
+  express = require('express');
+  cors = require('cors');
+} catch (e) {
+  console.log('');
+  console.log('  ╔══════════════════════════════════════════════╗');
+  console.log('  ║       ScanFlow AI — No node_modules found   ║');
+  console.log('  ╠══════════════════════════════════════════════╣');
+  console.log('  ║  The app works in demo mode! Open any HTML   ║');
+  console.log('  ║  file directly in your browser.              ║');
+  console.log('  ║                                              ║');
+  console.log('  ║  For AI features, run: npm install && npm start║');
+  console.log('  ╚══════════════════════════════════════════════╝');
+  console.log('');
+  process.exit(0);
+}
+
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '15mb' })); // Allow large image payloads
+app.use(express.json({ limit: '15mb' }));
 
 // Serve static frontend files from the project root
 app.use(express.static(path.join(__dirname)));
@@ -45,7 +69,6 @@ app.post('/api/send-sms', async (req, res) => {
   }
 
   try {
-    // Format phone number (remove + if present for Arkesel)
     const formattedPhone = phone.replace('+', '');
 
     const response = await fetch('https://api.arkesel.com/sms/api', {
@@ -165,7 +188,6 @@ Rules:
       return res.status(500).json({ error: 'No response content from Gemini API' });
     }
 
-    // Parse JSON response
     let parsed;
     try {
       parsed = JSON.parse(text);
@@ -173,7 +195,6 @@ Rules:
       return res.status(500).json({ error: 'Failed to parse AI response', raw: text.substring(0, 300) });
     }
 
-    // Map to our format
     const result = {
       aiResult: parsed.finding || 'Analysis complete',
       details: parsed.details || '',
@@ -262,26 +283,18 @@ if (require.main === module) {
   app.listen(PORT, () => {
     console.log('');
     console.log('  ╔══════════════════════════════════════════════╗');
-    console.log('  ║       ScanFlow AI — Backend Proxy Server     ║');
+    console.log('  ║       ScanFlow AI — Backend Proxy Server    ║');
     console.log('  ╠══════════════════════════════════════════════╣');
-    console.log(`  ║  🌐 Server running at: http://localhost:${PORT}  ║`);
-    console.log(`  ║  🤖 AI Model: ${GEMINI_MODEL.padEnd(29)}║`);
-    console.log(`  ║  🔑 Gemini API: ${GEMINI_API_KEY ? '✅ Configured' : '❌ NOT SET'.padEnd(27)}║`);
-    console.log(`  ║  📱 Arkesel SMS: ${process.env.ARKESEL_API_KEY ? '✅ Configured' : '❌ NOT SET'.padEnd(25)}║`);
+    console.log(`  ║  Server running at: http://localhost:${PORT}  ║`);
+    console.log(`  ║  AI Model: ${GEMINI_MODEL.padEnd(29)}║`);
+    console.log(`  ║  Gemini API: ${GEMINI_API_KEY ? 'Configured' : 'NOT SET (demo mode)'.padEnd(27)}║`);
+    console.log(`  ║  Arkesel SMS: ${process.env.ARKESEL_API_KEY ? 'Configured' : 'NOT SET (demo mode)'.padEnd(25)}║`);
+    console.log(`  ║  node_modules: ${typeof express !== 'undefined' ? 'OK' : 'MISSING'.padEnd(27)}║`);
     console.log('  ╚══════════════════════════════════════════════╝');
     console.log('');
-    if (!GEMINI_API_KEY || GEMINI_API_KEY.length <= 10) {
-      console.log('  ⚠️  WARNING: No valid GEMINI_API_KEY found in .env file!');
-      console.log('  → Create a .env file in the project root with:');
-      console.log('    GEMINI_API_KEY=AIzaSy-your-key-here');
-      console.log('');
-    }
-    if (!process.env.ARKESEL_API_KEY) {
-      console.log('  ⚠️  WARNING: No ARKESEL_API_KEY found in .env file!');
-      console.log('  → SMS notifications will use demo mode.');
-      console.log('  → Add to .env: ARKESEL_API_KEY=your-arkesel-api-key');
-      console.log('');
-    }
+    console.log('  Open http://localhost:' + PORT + ' to use ScanFlow AI');
+    console.log('  (or open any .html file directly in your browser for demo mode)');
+    console.log('');
   });
 }
 

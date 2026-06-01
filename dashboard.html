@@ -11,7 +11,7 @@
 <body>
 
   <!-- Mobile Menu Button -->
-  <button class="mobile-menu-btn" id="mobileMenuBtn">â˜°</button>
+  <button class="mobile-menu-btn" id="mobileMenuBtn">&#9776;</button>
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
   <div class="app-layout">
@@ -30,10 +30,10 @@
       </div>
       <nav>
         <a href="dashboard.html" class="active">
-          <span>ðŸ“Š</span> Dashboard
+          <span>&#128202;</span> Dashboard
         </a>
         <a href="upload.html">
-          <span>ðŸ“¤</span> Upload Scan
+          <span>&#128228;</span> Upload Scan
         </a>
       </nav>
       <div class="sidebar-footer">
@@ -45,7 +45,7 @@
           </div>
         </div>
         <button onclick="window.authUtils.logout()" style="margin-top:12px;background:rgba(255,255,255,0.1);color:#fff;padding:8px 16px;border-radius:8px;font-size:0.82rem;width:100%;transition:0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
-          ðŸšª Sign Out
+          &#128682; Sign Out
         </button>
       </div>
     </aside>
@@ -60,29 +60,29 @@
           <p>Overview of your medical imaging workflow</p>
         </div>
         <div class="actions">
-          <a href="upload.html" class="btn btn-primary btn-sm">ðŸ“¤ Upload Scan</a>
+          <a href="upload.html" class="btn btn-primary btn-sm">&#128228; Upload Scan</a>
         </div>
       </div>
 
       <!-- Stat Cards -->
       <div class="stat-cards">
         <div class="stat-card blue">
-          <div class="stat-icon">ðŸ“</div>
+          <div class="stat-icon">&#128193;</div>
           <div class="stat-value" id="statTotal">0</div>
           <div class="stat-label">Total Scans</div>
         </div>
         <div class="stat-card red">
-          <div class="stat-icon">ðŸš¨</div>
+          <div class="stat-icon">&#128680;</div>
           <div class="stat-value" id="statUrgent">0</div>
           <div class="stat-label">Urgent Scans</div>
         </div>
         <div class="stat-card orange">
-          <div class="stat-icon">ðŸ§ </div>
+          <div class="stat-icon">&#10067;</div>
           <div class="stat-value" id="statFlagged">0</div>
           <div class="stat-label">AI Flagged</div>
         </div>
         <div class="stat-card green">
-          <div class="stat-icon">â³</div>
+          <div class="stat-icon">&#9203;</div>
           <div class="stat-value" id="statPending">0</div>
           <div class="stat-label">Pending Reports</div>
         </div>
@@ -90,7 +90,7 @@
 
       <!-- Emergency Alerts -->
       <div class="content-card">
-        <h2>ðŸš¨ Emergency Alerts</h2>
+        <h2>&#128680; Emergency Alerts</h2>
         <div class="alerts-list" id="alertsList">
           <div style="text-align:center;padding:20px;color:var(--text-light);">
             <div class="spinner"></div>
@@ -101,7 +101,7 @@
 
       <!-- Recent Activity Table -->
       <div class="content-card">
-        <h2>ðŸ“‹ Recent Activity</h2>
+        <h2>&#128203; Recent Activity</h2>
         <div style="overflow-x:auto;">
           <table class="data-table">
             <thead>
