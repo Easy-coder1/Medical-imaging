@@ -1,7 +1,7 @@
 ﻿// ===== ScanFlow AI â€” Radiologist Dashboard Module =====
 import { supabase } from './supabase-config.js';
 import { isAIConfigured, analyzeImageWithAI, sendChatMessage } from './ai-config.js';
-import { sendRealSMS, buildScanResultMessage, buildUrgentScanMessage } from './sms-service.js';
+import { sendRealSMS, buildScanResultMessage, buildUrgentScanMessage, CONTACT_PHONE } from './sms-service.js';
 import {
   setupRealtimeSync,
   broadcastScanChange,
@@ -588,6 +588,8 @@ function sendSMS() {
         <label for="smsMessage" style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--text);">Your Message</label>
         <textarea id="smsMessage" rows="5" style="width:100%;padding:12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:inherit;font-size:0.9rem;color:var(--text);background:#FAFBFC;resize:vertical;"
           placeholder="Type your message to the patient...">Dear ${escapeHtml(patientName)}, your scan report has been reviewed. Please visit the hospital at your earliest convenience to collect the report.
+
+For questions, call: ${CONTACT_PHONE}
 
 Thank you.
 - ScanFlow AI</textarea>

@@ -6,6 +6,13 @@
 const SMS_API_URL = '/api/send-sms';
 
 /**
+ * Default contact phone number shown in SMS messages.
+ * Change this to your hospital's contact number.
+ * @type {string}
+ */
+export const CONTACT_PHONE = '+233 54 949 1646';
+
+/**
  * Send a real SMS message to a patient's phone number.
  * @param {string} phone - Patient phone number (e.g. +233501234567)
  * @param {string} message - The SMS message text
@@ -44,41 +51,35 @@ export async function sendRealSMS(phone, message) {
 /**
  * Build a professional SMS message for a completed scan review.
  * @param {object} scan - The scan object with patient_name, scan_type, urgency, etc.
+ * @param {string} [contactPhone] - Contact phone number to show. Defaults to CONTACT_PHONE.
  * @returns {string} The formatted SMS message
  */
-export function buildScanResultMessage(scan) {
+export function buildScanResultMessage(scan, contactPhone) {
   const name = scan.patient_name || 'Patient';
   const scanType = scan.scan_type || 'medical scan';
-  const finding = scan.ai_result || 'Your scan has been reviewed';
-  const urgency = scan.urgency || 'Normal';
-  const recommendation = scan.ai_recommendations || '';
+  const phone = contactPhone || CONTACT_PHONE;
 
   let msg = `Dear ${name},\n\n`;
   msg += `Your ${scanType} result is ready.\n\n`;
-  msg += `Finding: ${finding}\n`;
-  msg += `Urgency: ${urgency}\n`;
-  if (recommendation) {
-    msg += `Recommendation: ${recommendation}\n`;
-  }
-  msg += `\nPlease visit the hospital to receive your full report and discuss next steps with your doctor.\n\n`;
+  msg += `Please visit the hospital to receive your full report and discuss next steps with your doctor.\n\n`;
+  msg += `For any questions, call: ${phone}\n\n`;
   msg += `Thank you.\n- ScanFlow AI Medical Imaging`;
 
-  // SMS character limit check (typical limit is 160 characters per segment)
-  // If longer than 160 chars, most providers handle multi-segment automatically
   return msg;
 }
 
 /**
  * Build a short SMS message for critical/urgent results.
  * @param {object} scan - The scan object
+ * @param {string} [contactPhone] - Contact phone number to show. Defaults to CONTACT_PHONE.
  * @returns {string} The formatted SMS message
  */
-export function buildUrgentScanMessage(scan) {
+export function buildUrgentScanMessage(scan, contactPhone) {
   const name = scan.patient_name || 'Patient';
   const scanType = scan.scan_type || 'medical scan';
-  const finding = scan.ai_result || 'requires attention';
+  const phone = contactPhone || CONTACT_PHONE;
 
-  const msg = `URGENT: Dear ${name}, your ${scanType} result requires prompt attention. ${finding}. Please visit the hospital immediately or contact your doctor. - ScanFlow AI`;
+  const msg = `URGENT: Dear ${name}, your ${scanType} result requires prompt attention. Please visit the hospital immediately or call: ${phone}. - ScanFlow AI`;
 
   return msg;
 }

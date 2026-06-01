@@ -1,7 +1,7 @@
 // ===== ScanFlow AI — Radiographer Upload Module =====
 import { supabase } from './supabase-config.js';
 import { broadcastScanChange, upsertLocalScan, saveLocalScans, getLocalScans } from './realtime-sync.js';
-import { sendRealSMS } from './sms-service.js';
+import { sendRealSMS, CONTACT_PHONE } from './sms-service.js';
 
 // ---------- Priority Selector ----------
 function selectPriority(element) {
@@ -180,7 +180,7 @@ if (uploadForm) {
       // Auto-send "Scan Received" SMS to patient (real SMS, no demo fallback)
       if (patientPhone) {
         try {
-          const smsMessage = `Dear ${patientName}, your ${scanType} has been received by ScanFlow AI and is scheduled for review. You will be notified once the results are ready.\n\nThank you.\n- ScanFlow AI Medical Imaging`;
+          const smsMessage = `Dear ${patientName}, your ${scanType} has been received by ScanFlow AI and is scheduled for review. You will be notified once the results are ready.\n\nFor questions, call: ${CONTACT_PHONE}\n\nThank you.\n- ScanFlow AI Medical Imaging`;
           await sendRealSMS(patientPhone, smsMessage);
           scanData.sms_received_ack = true;
           console.log(`[SMS] ✓ Auto-sent "scan received" SMS to ${patientPhone}`);
