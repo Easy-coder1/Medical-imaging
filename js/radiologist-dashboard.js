@@ -201,9 +201,7 @@ function renderCriticalAlertsFromState() {
 
 // ---------- Load Stats ----------
 async function loadStats() {
-  if (allScans.length === 0) {
-    try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
-  }
+  try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
   renderStatsFromState();
 }
 
@@ -224,9 +222,7 @@ function animateCounter(id, target) {
 
 // ---------- Load Critical Alerts ----------
 async function loadCriticalAlerts() {
-  if (allScans.length === 0) {
-    try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
-  }
+  try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
   renderCriticalAlertsFromState();
 }
 
@@ -849,10 +845,10 @@ function generatePlaceholder(scanType) {
   const color = colors[scanType] || '#023E8A';
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="250" viewBox="0 0 400 250">
     <rect width="400" height="250" fill="${color}" rx="8"/>
-    <text x="200" y="115" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-family="sans-serif" font-size="48">ðŸ¥</text>
+    <text x="200" y="115" text-anchor="middle" fill="rgba(255,255,255,0.3)" font-family="sans-serif" font-size="48">&#x1F3E5;</text>
     <text x="200" y="155" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-family="sans-serif" font-size="14">${scanType || 'Medical Scan'}</text>
   </svg>`;
-  return 'data:image/svg+xml;base64,' + btoa(svg);
+  return 'data:image/svg+xml,' + encodeURIComponent(svg);
 }
 
 // ---------- Realtime integration ----------
@@ -862,29 +858,34 @@ function applyRealtimeChange(event, scan) {
   if (event === 'insert' || event === 'update') {
     // Merge into local cache (in case realtime arrived before our localStorage write)
     upsertLocalScan(scan);
+    // Update in-memory allScans array
     const idx = allScans.findIndex(s => String(s.id) === String(scan.id));
     if (idx === -1) allScans.unshift(scan);
     else allScans[idx] = { ...allScans[idx], ...scan };
+    // Keep the All Scans cache in sync too
+    const cacheIdx = _allScansCache.findIndex(s => String(s.id) === String(scan.id));
+    if (cacheIdx === -1) _allScansCache.unshift(scan);
+    else _allScansCache[cacheIdx] = { ..._allScansCache[cacheIdx], ...scan };
   } else if (event === 'delete') {
     removeLocalScan(scan.id);
     allScans = allScans.filter(s => String(s.id) !== String(scan.id));
+    _allScansCache = _allScansCache.filter(s => String(s.id) !== String(scan.id));
   } else if (event === 'refresh') {
-    // Another tab rewrote the local list â€” re-read it
+    // Another tab rewrote the local list — re-read it
     allScans = getLocalScans();
+    _allScansCache = [...allScans];
   }
   renderScans();
   renderStatsFromState();
   renderCriticalAlertsFromState();
-  if (typeof renderAllScansTable === 'function') {
-    _allScansCache = allScans;
-    renderAllScansTable();
-  }
+  // Always update the All Scans table
+  renderAllScansTable();
   if (event === 'insert') {
-    showToast(`ðŸ“¥ New scan: ${scan.patient_name || 'Unknown'}`, 'success');
+    showToast(`📥 New scan: ${scan.patient_name || 'Unknown'}`, 'success');
   } else if (event === 'update') {
-    showToast(`ðŸ”„ Scan updated: ${scan.patient_name || 'Unknown'}`, 'info');
+    showToast(`🔄 Scan updated: ${scan.patient_name || 'Unknown'}`, 'info');
   } else if (event === 'delete') {
-    showToast(`ðŸ—‘ï¸ Scan removed`, 'info');
+    showToast(`🗑️ Scan removed`, 'info');
   }
 }
 

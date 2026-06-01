@@ -91,9 +91,7 @@ function renderStatsFromState() {
 }
 
 async function loadStats() {
-  if (allScans.length === 0) {
-    try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
-  }
+  try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
   renderStatsFromState();
 }
 
@@ -151,9 +149,7 @@ function renderUploads() {
 }
 
 async function loadUploads() {
-  if (allScans.length === 0) {
-    try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
-  }
+  try { allScans = await collectAllScans(); } catch (e) { console.warn(e); }
   renderUploads();
 }
 

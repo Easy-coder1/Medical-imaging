@@ -30,28 +30,40 @@ function getUrgencyForFinding(finding) {
 async function loadStats() {
   let total = 0, urgent = 0, flagged = 0, pending = 0;
 
+  let allScans = [];
+
   if (supabase) {
     try {
-      const { data: scans, error } = await supabase.from('scans').select('urgency, ai_result, status');
-      if (!error && scans) {
-        total = scans.length;
-        scans.forEach(s => {
-          if (s.urgency === 'Critical' || s.urgency === 'Urgent') urgent++;
-          if (s.ai_result && s.ai_result !== 'Normal Scan') flagged++;
-          if (s.status === 'pending' || !s.status) pending++;
-        });
-      }
+      const { data: scans, error } = await supabase.from('scans').select('id, urgency, ai_result, status');
+      if (!error && scans) allScans = scans;
     } catch (err) {
-      console.log('Supabase query failed, using demo stats:', err.message);
-      total = 127; urgent = 18; flagged = 43; pending = 12;
+      console.log('Supabase query failed:', err.message);
     }
+  }
+
+  // Merge localStorage scans so freshly uploaded ones count immediately
+  try {
+    const localScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
+    if (localScans.length > 0) {
+      const existingIds = new Set(allScans.map(s => String(s.id)));
+      localScans.forEach(s => {
+        if (s && s.id != null && !existingIds.has(String(s.id))) {
+          allScans.push(s);
+        }
+      });
+    }
+  } catch (e) { /* ignore */ }
+
+  if (allScans.length > 0) {
+    total = allScans.length;
+    allScans.forEach(s => {
+      if (s.urgency === 'Critical' || s.urgency === 'Urgent') urgent++;
+      if ((s.ai_result && s.ai_result !== 'Normal Scan') || (s.aiResult && s.aiResult !== 'Normal Scan')) flagged++;
+      if (s.status === 'pending' || !s.status) pending++;
+    });
   } else {
-    // Demo mode
-    const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
-    total = demoScans.length || 127;
-    urgent = demoScans.filter(s => s.urgency === 'Critical' || s.urgency === 'Urgent').length || 18;
-    flagged = demoScans.filter(s => s.aiResult && s.aiResult !== 'Normal Scan').length || 43;
-    pending = demoScans.filter(s => s.status === 'pending' || !s.status).length || 12;
+    // Demo fallback
+    total = 127; urgent = 18; flagged = 43; pending = 12;
   }
 
   animateCounter('statTotal', total);
@@ -91,6 +103,34 @@ async function loadRecentActivity() {
       console.log('Supabase query failed:', err.message);
     }
   }
+
+  // Merge localStorage scans so freshly uploaded ones show up immediately
+  try {
+    const localScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
+    if (localScans.length > 0) {
+      const existingIds = new Set(scans.map(s => String(s.id)));
+      const newLocal = localScans.filter(s => s && s.id != null && !existingIds.has(String(s.id)));
+      if (newLocal.length > 0) scans = [...scans, ...newLocal];
+    }
+  } catch (e) { /* ignore */ }
+
+  // Deduplicate
+  const seen = new Set();
+  scans = scans.filter(s => {
+    if (!s || s.id == null) return false;
+    const k = String(s.id);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  // Sort newest first, then take top 8
+  scans.sort((a, b) => {
+    const at = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bt = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return bt - at;
+  });
+  scans = scans.slice(0, 8);
 
   if (scans.length === 0) {
     tbody.innerHTML = generateDemoRows();
