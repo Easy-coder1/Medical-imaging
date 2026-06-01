@@ -31,11 +31,13 @@ function getUrgencyBadge(urgency) {
 // ---------- Load Stats ----------
 async function loadStats() {
   let total = 0, reviewed = 0, pending = 0, critical = 0;
+  let supabaseSuccess = false;
 
   if (supabase) {
     try {
       const { data: scans, error } = await supabase.from('scans').select('*');
-      if (!error && scans) {
+      if (!error && scans && scans.length > 0) {
+        supabaseSuccess = true;
         total = scans.length;
         scans.forEach(s => {
           if (s.status === 'completed') reviewed++;
@@ -46,8 +48,10 @@ async function loadStats() {
     } catch (err) {
       console.log('Supabase query failed:', err.message);
     }
-  } else {
-    // Demo mode
+  }
+
+  // Fallback to localStorage if Supabase didn't return data
+  if (!supabaseSuccess) {
     const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
     total = demoScans.length;
     reviewed = demoScans.filter(s => s.status === 'completed').length;

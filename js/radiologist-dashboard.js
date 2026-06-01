@@ -40,11 +40,13 @@ function getUrgencyBadge(urgency) {
 // ---------- Load Stats ----------
 async function loadStats() {
   let total = 0, critical = 0, urgent = 0, reviewed = 0;
+  let supabaseSuccess = false;
 
   if (supabase) {
     try {
       const { data: scans, error } = await supabase.from('scans').select('*');
-      if (!error && scans) {
+      if (!error && scans && scans.length > 0) {
+        supabaseSuccess = true;
         total = scans.length;
         scans.forEach(s => {
           const priority = getPriorityClass(s);
@@ -56,8 +58,10 @@ async function loadStats() {
     } catch (err) {
       console.log('Supabase query failed:', err.message);
     }
-  } else {
-    // Demo mode
+  }
+
+  // Fallback to localStorage if Supabase didn't return data
+  if (!supabaseSuccess) {
     const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
     total = demoScans.length;
     critical = demoScans.filter(s => getPriorityClass(s) === 'critical').length;
@@ -89,6 +93,7 @@ async function loadCriticalAlerts() {
   if (!container) return;
 
   let criticalScans = [];
+  let supabaseSuccess = false;
 
   if (supabase) {
     try {
@@ -96,13 +101,17 @@ async function loadCriticalAlerts() {
         .from('scans')
         .select('*')
         .order('created_at', { ascending: false });
-      if (!error && data) {
+      if (!error && data && data.length > 0) {
+        supabaseSuccess = true;
         criticalScans = data.filter(s => getPriorityClass(s) === 'critical' && s.status !== 'completed');
       }
     } catch (err) {
       console.log('Supabase query failed:', err.message);
     }
-  } else {
+  }
+
+  // Fallback to localStorage if Supabase didn't return data
+  if (!supabaseSuccess) {
     const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
     criticalScans = demoScans.filter(s => getPriorityClass(s) === 'critical' && s.status !== 'completed');
   }
@@ -176,8 +185,8 @@ async function loadScans(showLoading = true) {
     console.log('[Radiologist Dashboard] Supabase not configured, using demo mode');
   }
 
-  // Fallback to localStorage if Supabase didn't return any scans
-  if (!supabaseSuccess && allScans.length === 0) {
+  // Fallback to localStorage if no scans were loaded from Supabase
+  if (allScans.length === 0) {
     const demoScans = JSON.parse(localStorage.getItem('demoScans') || '[]');
     if (demoScans.length > 0) {
       console.log(`[Radiologist Dashboard] Using ${demoScans.length} demo scans from localStorage`);
