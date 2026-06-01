@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Radiologist Dashboard — ScanFlow AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    /* Priority filter tabs */
+    .filter-tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    .filter-tab {
+      padding: 10px 20px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--card-bg);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .filter-tab:hover {
+      border-color: var(--primary-light);
+    }
+    .filter-tab.active {
+      border-color: var(--primary);
+      background: rgba(0,119,182,0.05);
+    }
+    .filter-tab .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .filter-tab .dot.critical { background: #E63946; }
+    .filter-tab .dot.urgent { background: #F4A261; }
+    .filter-tab .dot.normal { background: #2EC4B6; }
+    .filter-tab .dot.all { background: var(--primary); }
+    
+    /* Priority scan cards */
+    .priority-scan-card {
+      background: var(--card-bg);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      transition: var(--transition);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .priority-scan-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-hover);
+    }
+    .priority-scan-card.critical {
+      border-left: 5px solid #E63946;
+      background: linear-gradient(90deg, rgba(230,57,70,0.03) 0%, transparent 100%);
+    }
+    .priority-scan-card.urgent {
+      border-left: 5px solid #F4A261;
+      background: linear-gradient(90deg, rgba(244,162,97,0.03) 0%, transparent 100%);
+    }
+    .priority-scan-card.normal {
+      border-left: 5px solid #2EC4B6;
+    }
+    .priority-scan-card .priority-indicator {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    .priority-scan-card .priority-indicator.critical {
+      background: #E63946;
+      box-shadow: 0 0 12px rgba(230,57,70,0.6);
+    }
+    .priority-scan-card .priority-indicator.urgent {
+      background: #F4A261;
+      box-shadow: 0 0 12px rgba(244,162,97,0.6);
+    }
+    .priority-scan-card .priority-indicator.normal {
+      background: #2EC4B6;
+    }
+    .priority-scan-card .scan-preview {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+      margin-bottom: 12px;
+      background: #E8EDF2;
+    }
+    .priority-scan-card .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 8px;
+    }
+    .priority-scan-card .patient-name {
+      font-weight: 700;
+      font-size: 1rem;
+    }
+    .priority-scan-card .scan-type {
+      font-size: 0.82rem;
+      color: var(--text-light);
+      margin-bottom: 8px;
+    }
+    .priority-scan-card .ai-finding {
+      font-size: 0.85rem;
+      color: var(--text);
+      line-height: 1.4;
+      margin-bottom: 12px;
+    }
+    .priority-scan-card .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--text-light);
+    }
+    .priority-scan-card .confidence {
+      font-weight: 600;
+    }
+    .priority-scan-card .time-ago {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Mobile Menu Button -->
+  <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="app-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="8" fill="#0077B6"/>
+          <path d="M8 16C8 11.58 11.58 8 16 8C20.42 8 24 11.58 24 16" stroke="#00E5FF" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M12 16C12 13.79 13.79 12 16 12C18.21 12 20 13.79 20 16" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="16" cy="16" r="2" fill="#fff"/>
+          <path d="M16 18V24" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        ScanFlow AI
+      </div>
+      <nav>
+        <a href="radiologist-dashboard.html" class="active">
+          <span>📊</span> Dashboard
+        </a>
+        <a href="radiologist-review.html">
+          <span>📋</span> All Scans
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="user-info">
+          <div class="user-avatar" id="userAvatar">D</div>
+          <div>
+            <div class="user-name" id="userName">Doctor</div>
+            <div class="user-role" id="userRole">Radiologist</div>
+          </div>
+        </div>
+        <button onclick="window.authUtils.logout()" style="margin-top:12px;background:rgba(255,255,255,0.1);color:#fff;padding:8px 16px;border-radius:8px;font-size:0.82rem;width:100%;transition:0.3s;" onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">
+          🚪 Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Page Header -->
+      <div class="page-header">
+        <div>
+          <h1>🏥 Radiologist Dashboard</h1>
+          <p>Review scans by priority — Critical cases require immediate attention</p>
+        </div>
+        <div class="actions">
+          <a href="radiologist-review.html" class="btn btn-secondary btn-sm">📋 View All Scans</a>
+        </div>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stat-cards">
+        <div class="stat-card blue">
+          <div class="stat-icon">📁</div>
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">Total Scans</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-icon">🚨</div>
+          <div class="stat-value" id="statCritical">0</div>
+          <div class="stat-label">Critical</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-icon">⚡</div>
+          <div class="stat-value" id="statUrgent">0</div>
+          <div class="stat-label">Urgent</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value" id="statReviewed">0</div>
+          <div class="stat-label">Reviewed</div>
+        </div>
+      </div>
+
+      <!-- Emergency Alerts -->
+      <div class="content-card" style="border-left: 5px solid #E63946;">
+        <h2 style="color: #E63946;">🚨 Critical Cases — Immediate Attention Required</h2>
+        <div class="alerts-list" id="criticalAlertsList">
+          <div style="text-align:center;padding:20px;color:var(--text-light);">
+            <div class="spinner"></div>
+            <p style="margin-top:12px;font-size:0.85rem;">Loading critical cases...</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="filter-tabs">
+        <div class="filter-tab active" data-filter="all" onclick="filterScans('all')">
+          <span class="dot all"></span>
+          All Scans
+        </div>
+        <div class="filter-tab" data-filter="critical" onclick="filterScans('critical')">
+          <span class="dot critical"></span>
+          Critical
+        </div>
+        <div class="filter-tab" data-filter="urgent" onclick="filterScans('urgent')">
+          <span class="dot urgent"></span>
+          Urgent
+        </div>
+        <div class="filter-tab" data-filter="normal" onclick="filterScans('normal')">
+          <span class="dot normal"></span>
+          Normal
+        </div>
+      </div>
+
+      <!-- Priority Scan Grid -->
+      <div id="scanGrid" class="scan-list" style="grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));">
+        <div style="text-align:center;padding:60px 24px;grid-column:1/-1;">
+          <div class="spinner"></div>
+          <p style="margin-top:12px;color:var(--text-light);font-size:0.85rem;">Loading scans...</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script type="module" src="js/supabase-config.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/radiologist-dashboard.js"></script>
+
+</body>
+</html>

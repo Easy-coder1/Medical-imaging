@@ -56,7 +56,7 @@ if (registerForm) {
       if (role === 'Radiographer') {
         window.location.href = 'radiographer-dashboard.html';
       } else {
-        window.location.href = 'dashboard.html';
+        window.location.href = 'radiologist-dashboard.html';
       }
       return;
     }
@@ -91,7 +91,7 @@ if (registerForm) {
       if (role === 'Radiographer') {
         window.location.href = 'radiographer-dashboard.html';
       } else {
-        window.location.href = 'dashboard.html';
+        window.location.href = 'radiologist-dashboard.html';
       }
     } catch (err) {
       const msg = err.message?.includes('already registered')
@@ -126,7 +126,7 @@ if (loginForm) {
       if (role === 'Radiographer') {
         window.location.href = 'radiographer-dashboard.html';
       } else {
-        window.location.href = 'dashboard.html';
+        window.location.href = 'radiologist-dashboard.html';
       }
       return;
     }
@@ -155,7 +155,7 @@ if (loginForm) {
       if (role === 'Radiographer') {
         window.location.href = 'radiographer-dashboard.html';
       } else {
-        window.location.href = 'dashboard.html';
+        window.location.href = 'radiologist-dashboard.html';
       }
     } catch (err) {
       let msg = 'Login failed. Please check your credentials.';
