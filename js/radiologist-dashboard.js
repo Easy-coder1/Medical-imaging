@@ -577,9 +577,6 @@ function sendSMS() {
         To: <strong>${escapeHtml(patientName)}</strong>
         ${scan.sms_sent ? '<br><span style="color:#F4A261;">&#9888; Sent previously. Re-sending will notify the patient again.</span>' : ''}
       </p>
-      <p style="font-size:0.78rem;color:#E63946;margin:0 0 12px 0;">
-        &#9888; SMS is sent via Arkesel. Requires ARKESEL_API_KEY configured on server.
-      </p>
       
       <div class="form-group" style="margin-bottom:12px;">
         <label for="smsPhoneInput" style="display:block;font-weight:600;font-size:0.85rem;margin-bottom:6px;color:var(--text);">Patient Phone Number</label>
