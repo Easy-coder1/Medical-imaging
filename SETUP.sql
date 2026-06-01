@@ -42,8 +42,21 @@ CREATE TABLE IF NOT EXISTS scans (
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scans ENABLE ROW LEVEL SECURITY;
 
--- 4. RLS Policies — Allow all operations for authenticated users
+-- 4. Grant permissions to authenticated users
+-- These GRANT statements are required for Supabase to allow access
+GRANT USAGE ON SCHEMA public TO authenticated;
+GRANT ALL ON public.users TO authenticated;
+GRANT ALL ON public.scans TO authenticated;
+
+-- 5. RLS Policies — Allow all operations for authenticated users
 -- (For a prototype, we keep it simple. Tighten these for production.)
+
+DROP POLICY IF EXISTS "Users can read all profiles" ON users;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON users;
+DROP POLICY IF EXISTS "Users can update their own profile" ON users;
+DROP POLICY IF EXISTS "Authenticated users can read scans" ON scans;
+DROP POLICY IF EXISTS "Authenticated users can insert scans" ON scans;
+DROP POLICY IF EXISTS "Authenticated users can update scans" ON scans;
 
 CREATE POLICY "Users can read all profiles"
   ON users FOR SELECT
@@ -70,7 +83,7 @@ CREATE POLICY "Authenticated users can update scans"
   ON scans FOR UPDATE
   USING (true);
 
--- 5. Storage bucket for scan images
+-- 6. Storage bucket for scan images
 -- Run this separately in the Supabase Dashboard:
 -- Go to Storage > New Bucket
 -- Bucket name: scan-images
@@ -81,13 +94,24 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('scan-images', 'scan-images', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Storage policy: allow authenticated uploads
-CREATE POLICY "Anyone can upload scan images"
+-- Storage policies: allow authenticated uploads and public viewing
+DROP POLICY IF EXISTS "Allow authenticated upload scan images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow public view scan images" ON storage.objects;
+
+CREATE POLICY "Allow authenticated upload scan images"
   ON storage.objects FOR INSERT
+  TO authenticated
   WITH CHECK (bucket_id = 'scan-images');
 
-CREATE POLICY "Anyone can view scan images"
+CREATE POLICY "Allow public view scan images"
   ON storage.objects FOR SELECT
+  TO authenticated
+  USING (bucket_id = 'scan-images');
+
+-- Also allow public access for viewing images
+CREATE POLICY "Allow public select scan images"
+  ON storage.objects FOR SELECT
+  TO public
   USING (bucket_id = 'scan-images');
 
 -- ============================================
