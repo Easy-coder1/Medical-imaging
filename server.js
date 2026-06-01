@@ -108,10 +108,10 @@ app.post('/api/send-sms', async (req, res) => {
       result = { raw: text };
     }
 
-    if (!response.ok) {
+    if (!response.ok || (result && result.code && String(result.code).toLowerCase() !== 'ok' && String(result.code) !== '100')) {
       const errorDetail = result?.message || result?.error || `Arkesel API returned HTTP ${response.status}`;
       console.error(`[SMS] Arkesel error (${response.status}): ${errorDetail}`);
-      return res.status(response.status).json({ error: errorDetail, detail: result });
+      return res.status(response.ok ? 400 : response.status).json({ error: errorDetail, detail: result });
     }
 
     console.log(`[SMS] ✓ Real SMS sent to ${formattedPhone}: "${message.substring(0, 60)}..."`);

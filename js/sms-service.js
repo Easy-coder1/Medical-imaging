@@ -3,7 +3,11 @@
 // It will NOT silently fall back to demo mode — if sending fails,
 // the error is thrown so the caller can handle it.
 
-const SMS_API_URL = '/api/send-sms';
+// When running locally from file://, fallback to localhost server.
+// Otherwise (like on Vercel or local npm start), use the relative /api/send-sms.
+const SMS_API_URL = window.location.protocol === 'file:' 
+  ? 'http://localhost:3000/api/send-sms' 
+  : '/api/send-sms';
 
 /**
  * Default contact phone number shown in SMS messages.

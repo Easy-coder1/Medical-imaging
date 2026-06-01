@@ -1025,8 +1025,8 @@ function renderAllScansTable() {
         <td>${time}</td>
         <td>
           <div class="actions-cell">
-            <button class="btn-icon btn-view" title="View details" onclick="window.dashUtils.openScanFromAllScans('${safeId}')">ðŸ‘ï¸</button>
-            <button class="btn-icon btn-delete" title="Delete scan" onclick="window.dashUtils.confirmDeleteScan('${safeId}')">ðŸ—‘ï¸</button>
+            <button class="btn-icon btn-view" title="View details" onclick="window.dashUtils.openScanFromAllScans('${safeId}')">&#128065;</button>
+            <button class="btn-icon btn-delete" title="Delete scan" onclick="window.dashUtils.confirmDeleteScan('${safeId}')">&#128465;</button>
           </div>
         </td>
       </tr>`;
