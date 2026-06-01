@@ -144,17 +144,21 @@ if (uploadForm) {
         created_at: new Date().toISOString()
       };
 
-      // Save to database
+      // Always save to localStorage first for reliable persistence
+      saveDemoScan(scanData);
+
+      // Also save to Supabase if available
       if (supabase) {
         try {
           const { error: dbError } = await supabase.from('scans').insert(scanData);
-          if (dbError) throw dbError;
+          if (dbError) {
+            console.log('Supabase insert returned error:', dbError.message);
+          } else {
+            console.log('Scan saved to Supabase successfully');
+          }
         } catch (dbErr) {
           console.log('Supabase save failed:', dbErr.message);
-          saveDemoScan(scanData);
         }
-      } else {
-        saveDemoScan(scanData);
       }
 
       showToast('Scan uploaded successfully! It will appear in the radiologist\'s queue.', 'success');
@@ -182,10 +186,14 @@ if (uploadForm) {
 }
 
 function saveDemoScan(scanData) {
+  // Always generate a local ID for localStorage persistence
+  if (!scanData.id || String(scanData.id).startsWith('scan_')) {
+    scanData.id = 'scan_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  }
   const existing = JSON.parse(localStorage.getItem('demoScans') || '[]');
-  scanData.id = 'scan_' + Date.now();
   existing.push(scanData);
   localStorage.setItem('demoScans', JSON.stringify(existing));
+  console.log('Scan saved to localStorage:', scanData.id);
 }
 
 // ---------- Init ----------

@@ -161,9 +161,6 @@
         <a href="radiologist-dashboard.html" class="active">
           <span>📊</span> Dashboard
         </a>
-        <a href="review.html">
-          <span>📋</span> All Scans
-        </a>
       </nav>
       <div class="sidebar-footer">
         <div class="user-info">
@@ -253,6 +250,128 @@
           <div class="spinner"></div>
           <p style="margin-top:12px;color:var(--text-light);font-size:0.85rem;">Loading scans...</p>
         </div>
+      </div>
+
+      <!-- Scan Detail View (inline) -->
+      <div id="detailView" style="display:none; margin-top: 24px;">
+        <button onclick="window.dashUtils.closeDetail()" class="btn btn-secondary btn-sm" style="margin-bottom:20px;">
+          ← Back to All Scans
+        </button>
+
+        <div class="review-layout">
+          <!-- Image Card -->
+          <div class="review-image-card">
+            <h3 style="align-self:flex-start;margin-bottom:16px;">🖼️ Scan Image</h3>
+            <img id="detailImage" src="" alt="Scan Image">
+            <p style="font-size:0.82rem;color:var(--text-light);margin-top:8px;">
+              Uploaded: <span id="detailTime">—</span>
+            </p>
+          </div>
+
+          <!-- Info Card -->
+          <div class="review-info-card">
+            <h3>📋 Scan Details</h3>
+
+            <div class="info-row">
+              <span class="label">Patient Name</span>
+              <span class="value" id="detailPatient">—</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Patient Number</span>
+              <span class="value" id="detailPatientNumber">—</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Age</span>
+              <span class="value" id="detailPatientAge">—</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Phone Number</span>
+              <span class="value" id="detailPatientPhone">—</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Scan Type</span>
+              <span class="value" id="detailScanType">—</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Priority</span>
+              <span class="value"><span class="badge" id="detailPriority">—</span></span>
+            </div>
+            <div class="info-row">
+              <span class="label">AI Finding</span>
+              <span class="value" id="detailFinding" style="color:var(--danger);">—</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Confidence</span>
+              <span class="value" id="detailConfidence">—</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Urgency Level</span>
+              <span class="value"><span class="badge" id="detailUrgency">—</span></span>
+            </div>
+            <div class="info-row">
+              <span class="label">AI Engine</span>
+              <span class="value" id="detailEngine" style="color:var(--primary);">—</span>
+            </div>
+            <div class="info-row">
+              <span class="label">Review Status</span>
+              <span class="value"><span class="badge" id="detailStatus">—</span></span>
+            </div>
+            <div class="info-row">
+              <span class="label">SMS Status</span>
+              <span class="value"><span class="badge" id="detailSmsStatus">—</span></span>
+            </div>
+
+            <!-- Detailed Analysis Section -->
+            <div id="detailAnalysisSection" style="display:none; margin-top:16px;">
+              <div class="ai-detail-section" style="margin-bottom:12px;">
+                <div class="label">Detailed Analysis</div>
+                <div class="value" id="detailAnalysis" style="font-size:0.9rem;line-height:1.65;color:var(--text);white-space:pre-wrap;">—</div>
+              </div>
+              <div class="ai-detail-section">
+                <div class="label">Recommendations</div>
+                <div class="value" id="detailRecommendations" style="font-size:0.9rem;line-height:1.65;color:var(--text);white-space:pre-wrap;">—</div>
+              </div>
+            </div>
+
+            <div class="review-actions">
+              <button id="runAiBtn" onclick="window.dashUtils.runAIAnalysis()" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #4A00E0, #8E2DE2);">
+                🤖 Analyze with AI
+              </button>
+              <button onclick="window.dashUtils.sendSMS()" class="btn btn-primary btn-sm" style="background: linear-gradient(135deg, #0077B6, #00B4D8);">
+                📱 Send SMS to Patient
+              </button>
+              <button onclick="window.dashUtils.approveScan()" class="btn btn-success btn-sm">
+                ✅ Approve
+              </button>
+              <button onclick="window.dashUtils.flagUrgent()" class="btn btn-danger btn-sm">
+                🚨 Mark Urgent
+              </button>
+              <button onclick="window.dashUtils.completeReview()" class="btn btn-primary btn-sm">
+                ✔️ Complete Review
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- AI Chat Card -->
+        <div class="content-card" id="aiChatCard" style="margin-top: 24px;">
+          <h2 style="margin-bottom: 12px;">💬 ScanFlow AI Assistant</h2>
+          <p style="color: var(--text-light); font-size: 0.85rem; margin-top: -6px; margin-bottom: 16px;">
+            Ask the AI questions about anatomy, medical findings, pathologies, or the uploaded scan.
+          </p>
+          <div class="ai-chat-section" id="aiChatSection" style="border-top: 1px solid rgba(0,0,0,0.06); padding-top: 15px;">
+            <div id="aiChatHistory" style="max-height: 250px; overflow-y: auto; margin-bottom: 12px; font-size: 0.9rem; color: var(--text-color); display: flex; flex-direction: column; gap: 8px;">
+              <div style="background: rgba(0,0,0,0.03); padding: 8px; border-radius: 6px;">
+                <strong>AI:</strong> Hello! I am your ScanFlow AI assistant. How can I help you today? You can ask me questions about medical imaging, scan types, or any abnormalities.
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <input type="text" id="aiChatInput" placeholder="Ask a question..." style="flex: 1; padding: 8px 12px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); font-family: inherit; background: #FAFBFC; color: var(--text);">
+              <button id="aiChatBtn" onclick="window.dashUtils.handleChatSubmit()" class="btn btn-primary btn-sm" style="padding: 8px 16px;">Ask</button>
+            </div>
+          </div>
+        </div>
+
       </div>
 
     </main>

@@ -48,7 +48,7 @@ GRANT USAGE ON SCHEMA public TO authenticated;
 GRANT ALL ON public.users TO authenticated;
 GRANT ALL ON public.scans TO authenticated;
 
--- 5. RLS Policies — Allow all operations for authenticated users
+-- 5. RLS Policies — Allow all operations for authenticated and anon users
 -- (For a prototype, we keep it simple. Tighten these for production.)
 
 DROP POLICY IF EXISTS "Users can read all profiles" ON users;
@@ -57,6 +57,9 @@ DROP POLICY IF EXISTS "Users can update their own profile" ON users;
 DROP POLICY IF EXISTS "Authenticated users can read scans" ON scans;
 DROP POLICY IF EXISTS "Authenticated users can insert scans" ON scans;
 DROP POLICY IF EXISTS "Authenticated users can update scans" ON scans;
+DROP POLICY IF EXISTS "Anon users can read scans" ON scans;
+DROP POLICY IF EXISTS "Anon users can insert scans" ON scans;
+DROP POLICY IF EXISTS "Anon users can update scans" ON scans;
 
 CREATE POLICY "Users can read all profiles"
   ON users FOR SELECT
@@ -70,18 +73,41 @@ CREATE POLICY "Users can update their own profile"
   ON users FOR UPDATE
   USING (auth.uid() = id);
 
--- Scans: anyone authenticated can read, insert, update
+-- Scans: authenticated users can read, insert, update
 CREATE POLICY "Authenticated users can read scans"
   ON scans FOR SELECT
+  TO authenticated
   USING (true);
 
 CREATE POLICY "Authenticated users can insert scans"
   ON scans FOR INSERT
+  TO authenticated
   WITH CHECK (true);
 
 CREATE POLICY "Authenticated users can update scans"
   ON scans FOR UPDATE
+  TO authenticated
   USING (true);
+
+-- Scans: anon (demo) users can also read, insert, update
+CREATE POLICY "Anon users can read scans"
+  ON scans FOR SELECT
+  TO anon
+  USING (true);
+
+CREATE POLICY "Anon users can insert scans"
+  ON scans FOR INSERT
+  TO anon
+  WITH CHECK (true);
+
+CREATE POLICY "Anon users can update scans"
+  ON scans FOR UPDATE
+  TO anon
+  USING (true);
+
+-- Also grant anon role permissions
+GRANT USAGE ON SCHEMA public TO anon;
+GRANT ALL ON public.scans TO anon;
 
 -- 6. Storage bucket for scan images
 -- Run this separately in the Supabase Dashboard:
@@ -94,8 +120,9 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('scan-images', 'scan-images', true)
 ON CONFLICT (id) DO NOTHING;
 
--- Storage policies: allow authenticated uploads and public viewing
+-- Storage policies: allow authenticated and anon uploads, and public viewing
 DROP POLICY IF EXISTS "Allow authenticated upload scan images" ON storage.objects;
+DROP POLICY IF EXISTS "Allow anon upload scan images" ON storage.objects;
 DROP POLICY IF EXISTS "Allow public view scan images" ON storage.objects;
 
 CREATE POLICY "Allow authenticated upload scan images"
@@ -103,13 +130,12 @@ CREATE POLICY "Allow authenticated upload scan images"
   TO authenticated
   WITH CHECK (bucket_id = 'scan-images');
 
-CREATE POLICY "Allow public view scan images"
-  ON storage.objects FOR SELECT
-  TO authenticated
-  USING (bucket_id = 'scan-images');
+CREATE POLICY "Allow anon upload scan images"
+  ON storage.objects FOR INSERT
+  TO anon
+  WITH CHECK (bucket_id = 'scan-images');
 
--- Also allow public access for viewing images
-CREATE POLICY "Allow public select scan images"
+CREATE POLICY "Allow public view scan images"
   ON storage.objects FOR SELECT
   TO public
   USING (bucket_id = 'scan-images');
