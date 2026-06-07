@@ -184,7 +184,7 @@ Rules:
             type: 'image_url',
             image_url: {
               url: dataUri,
-              detail: 'high'
+              detail: 'low'
             }
           }
         ]
@@ -209,8 +209,12 @@ Rules:
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMsg = errorData?.error?.message || errorData?.detail || `OpenAI API error: ${response.status}`;
+      let errorMsg = errorData?.error?.message || errorData?.detail || `OpenAI API error: ${response.status}`;
       console.error('[analyze] API error:', errorMsg);
+      // Rate limit — give a clear message
+      if (response.status === 429) {
+        errorMsg = 'RATE_LIMITED: The OpenAI API rate limit has been reached. Please wait a minute and try again. (Error 429)';
+      }
       return res.status(response.status).json({ error: errorMsg });
     }
 
@@ -293,7 +297,11 @@ app.post('/api/chat', async (req, res) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      const errorMsg = errorData?.error?.message || errorData?.detail || `OpenAI API error: ${response.status}`;
+      let errorMsg = errorData?.error?.message || errorData?.detail || `OpenAI API error: ${response.status}`;
+      // Rate limit — give a clear message
+      if (response.status === 429) {
+        errorMsg = 'RATE_LIMITED: The OpenAI API rate limit has been reached. Please wait a minute and try again. (Error 429)';
+      }
       return res.status(response.status).json({ error: errorMsg });
     }
 
