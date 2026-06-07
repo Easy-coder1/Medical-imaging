@@ -1,4 +1,4 @@
-// ===== ScanFlow AI — Upload Module (Supabase + Gemini) =====
+// ===== ScanFlow AI — Upload Module (Supabase + OpenAI) =====
 import { supabase } from './supabase-config.js';
 import { isAIConfigured, analyzeImageWithAI, sendChatMessage } from './ai-config.js';
 
@@ -63,11 +63,11 @@ function simulateAidocAI(scanType) {
 
   return {
     aiResult: finding.result,
-    details: 'This is a simulated analysis. Configure your Gemini API key in your .env file for real Gemini image analysis.',
+    details: 'This is a simulated analysis. Configure your OpenAI API key in your .env file for real AI image analysis.',
     urgency: finding.urgency,
     confidence: confidence,
     anatomicalRegion: finding.category,
-    recommendations: 'This is a demo result. For real clinical analysis, please configure a Gemini API key.',
+    recommendations: 'This is a demo result. For real clinical analysis, please configure an OpenAI API key.',
     aiEngine: 'Simulated',
     category: finding.category
   };
@@ -201,28 +201,28 @@ if (uploadForm) {
 
       // Check if AI API is configured for real image analysis
       if (await isAIConfigured()) {
-        showToast('Sending image to Gemini for analysis...', 'info');
+        showToast('Sending image to AI for analysis...', 'info');
         try {
           // Convert file to base64 for the API
           const { base64, mimeType } = await fileToBase64(selectedFile);
 
-          showToast('Gemini is analyzing the image content...', 'info');
+          showToast('AI is analyzing the image content...', 'info');
           await new Promise(r => setTimeout(r, 500));
 
-          // Real image analysis via Gemini
+          // Real image analysis via OpenAI
           ai = await analyzeImageWithAI(base64, mimeType, scanType, patientName);
-          showToast('Gemini analysis complete!', 'success');
+          showToast('AI analysis complete!', 'success');
 
         } catch (apiErr) {
-          console.error('Gemini API error:', apiErr);
+          console.error('AI API error:', apiErr);
           if (apiErr.message.includes('AI_NOT_CONFIGURED') || apiErr.message.includes('invalid') || apiErr.message.includes('API key')) {
             showToast('Invalid API key. Using simulated analysis.', 'error');
           } else if (apiErr.message.includes('rate limit') || apiErr.message.includes('quota')) {
             showToast('API rate limit reached. Using simulated analysis.', 'error');
           } else if (apiErr.message.toLowerCase().includes('timeout') || apiErr.message.includes('504')) {
-            showToast('Gemini request timed out. Using simulated analysis.', 'error');
+            showToast('AI request timed out. Using simulated analysis.', 'error');
           } else {
-            showToast('Gemini unavailable: ' + apiErr.message + '. Using simulated analysis.', 'error');
+            showToast('AI unavailable: ' + apiErr.message + '. Using simulated analysis.', 'error');
           }
           // Fall back to simulated analysis
           showToast('Running simulated analysis...', 'info');
@@ -387,7 +387,7 @@ async function handleChatSubmit() {
   } catch (err) {
     console.warn('Chat API failed, falling back to simulated response:', err);
     // Add simulated AI message
-    const simulatedReply = "This is a simulated response. To get real AI answers, please configure your Gemini API key.";
+    const simulatedReply = "This is a simulated response. To get real AI answers, please configure your OpenAI API key.";
     const aiMsg = document.createElement('div');
     aiMsg.innerHTML = `<strong>AI (Simulated):</strong> ${simulatedReply}`;
     aiMsg.style.background = 'rgba(0,0,0,0.03)';

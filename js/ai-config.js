@@ -7,6 +7,10 @@
 // 1. Ensure OPENAI_API_KEY is set in your .env file
 // 2. Run: npm install && npm start
 // 3. Open http://localhost:3000 in your browser
+//
+// The server uses OpenAI's API (gpt-4o-mini by default) for both
+// image analysis (vision) and text chat. The key is NEVER exposed
+// to the client browser.
 
 // The backend proxy URL (same origin when served by server.js)
 const PROXY_API_URL = '/api/analyze';

@@ -669,11 +669,11 @@ function simulateAidocAI(scanType) {
   const conf = Math.floor(Math.random() * 40) + 50;
   return {
     aiResult: 'Simulated Finding: Abnormalities detected.',
-    details: 'This is a simulated analysis. Configure your Gemini API key for real image analysis.',
+    details: 'This is a simulated analysis. Configure your OpenAI API key for real image analysis.',
     urgency: urg,
     confidence: conf,
     anatomicalRegion: 'General',
-    recommendations: 'This is a demo result. For real clinical analysis, please configure an API key.',
+    recommendations: 'This is a demo result. For real clinical analysis, please configure an OpenAI API key.',
     aiEngine: 'Simulated',
     category: scanType
   };
@@ -721,10 +721,10 @@ async function runAIAnalysis() {
       try { ai = await analyzeImageWithAI(base64, mimeType, scan.scan_type, scan.patient_name); }
       catch (err) {
         console.error('AI API error:', err);
-        if (err.message.toLowerCase().includes('timeout') || err.message.includes('504')) {
-          showToast('Gemini request timed out. Using simulated analysis...', 'error');
-        } else {
-          showToast('AI API error, falling back to simulation...', 'error');
+          if (err.message.toLowerCase().includes('timeout') || err.message.includes('504')) {
+            showToast('AI request timed out. Using simulated analysis...', 'error');
+          } else {
+            showToast('AI API error, falling back to simulation...', 'error');
         }
         ai = simulateAidocAI(scan.scan_type);
       }
