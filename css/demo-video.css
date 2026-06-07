@@ -1,0 +1,267 @@
+/* ===== ScanFlow AI — Demo Video Player ===== */
+.demo-video-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #0077B6, #00B4D8);
+  color: #fff;
+  border: none;
+  border-radius: 50px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 119, 182, 0.4);
+  transition: all 0.3s ease;
+}
+.demo-video-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 28px rgba(0, 119, 182, 0.55);
+}
+.demo-video-btn:active {
+  transform: translateY(0);
+}
+.demo-video-btn .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.2);
+  font-size: 0.9rem;
+}
+
+/* Modal Backdrop */
+.demo-video-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+  padding: 20px;
+}
+.demo-video-backdrop.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Modal Card */
+.demo-video-card {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  background: #1B2A4A;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  transform: scale(0.92) translateY(20px);
+  transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.demo-video-backdrop.open .demo-video-card {
+  transform: scale(1) translateY(0);
+}
+
+/* Close Button */
+.demo-video-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.demo-video-close:hover {
+  background: rgba(230, 57, 70, 0.8);
+}
+
+/* Header */
+.demo-video-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  background: rgba(255,255,255,0.05);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.demo-video-header .logo-icon {
+  width: 28px;
+  height: 28px;
+}
+.demo-video-header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  flex: 1;
+}
+.demo-video-header .duration {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.5);
+}
+
+/* Video Wrapper */
+.demo-video-wrapper {
+  position: relative;
+  width: 100%;
+  background: #000;
+}
+.demo-video-wrapper video {
+  display: block;
+  width: 100%;
+  max-height: 70vh;
+  object-fit: contain;
+  cursor: pointer;
+}
+
+/* Custom Controls Overlay */
+.demo-video-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.8));
+  padding: 30px 16px 12px;
+  transition: opacity 0.3s;
+  opacity: 0;
+}
+.demo-video-wrapper:hover .demo-video-controls,
+.demo-video-controls.show {
+  opacity: 1;
+}
+
+/* Progress Bar */
+.demo-video-progress {
+  width: 100%;
+  height: 4px;
+  background: rgba(255,255,255,0.2);
+  border-radius: 2px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  position: relative;
+}
+.demo-video-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00B4D8, #0077B6);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 0.1s linear;
+}
+.demo-video-progress:hover {
+  height: 6px;
+}
+
+/* Control Buttons Row */
+.demo-video-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.demo-video-controls-row button {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+}
+.demo-video-controls-row button:hover {
+  background: rgba(255,255,255,0.15);
+}
+.demo-video-controls-row .time-display {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.7);
+  font-family: monospace;
+  margin-left: auto;
+}
+
+/* Placeholder / No-video state */
+.demo-video-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: rgba(255,255,255,0.5);
+  text-align: center;
+}
+.demo-video-placeholder .big-icon {
+  font-size: 3rem;
+  margin-bottom: 16px;
+  opacity: 0.4;
+}
+.demo-video-placeholder h4 {
+  color: rgba(255,255,255,0.7);
+  margin: 0 0 8px 0;
+  font-size: 1.1rem;
+}
+.demo-video-placeholder p {
+  margin: 0;
+  font-size: 0.85rem;
+  max-width: 400px;
+  line-height: 1.5;
+}
+
+/* First-visit checkbox */
+.demo-video-dont-show {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.5);
+  background: rgba(0,0,0,0.2);
+  cursor: pointer;
+  user-select: none;
+}
+.demo-video-dont-show input {
+  accent-color: #00B4D8;
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+  .demo-video-btn {
+    bottom: 16px;
+    right: 16px;
+    padding: 10px 16px;
+    font-size: 0.78rem;
+  }
+  .demo-video-card {
+    border-radius: 12px;
+  }
+  .demo-video-backdrop {
+    padding: 10px;
+  }
+}
+</｜｜DSML｜｜parameter>
+</｜｜DSML｜｜invoke>
+</｜｜DSML｜｜tool_calls>
